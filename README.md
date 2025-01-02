@@ -1,8 +1,9 @@
 # PTP Archiver Go
 
-A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers.
+A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. This tool only works with qBittorrent.
 
-This tool only works with qBittorrent.
+> [!WARNING]  
+> **Important Note**: This implementation follows the original Python script's version (`0.10.0`). The program will stop working if the original Python script is updated, requiring an update of this Go version to maintain compatibility. This is to ensure protocol compliance and correct functionality.
 
 ## Installation
 
