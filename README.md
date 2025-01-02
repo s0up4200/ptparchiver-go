@@ -6,6 +6,25 @@ This tool only works with qBittorrent.
 
 ## Installation
 
+### Downloading the binary
+
+1. Download the binary for your operating system:
+
+   ```bash
+   wget $(curl -s https://api.github.com/repos/s0up4200/ptparchiver-go/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
+   ```
+
+2. Extract the downloaded archive to `/usr/local/bin`:
+
+   ```bash
+   sudo tar -C /usr/local/bin -xzf ptparchiver*.tar.gz
+   ```
+
+3. Verify the installation:
+   ```bash
+   ptparchiver --help
+   ```
+
 ### Building from Source
 
 ```bash
@@ -14,7 +33,7 @@ cd ptparchiver-go
 go build -o ptparchiver ./cmd/archiver
 ```
 
-### Installing from GitHub
+### Installing using Go
 
 Requires Go to be installed. Get it from [here](https://go.dev/dl/).
 
