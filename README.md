@@ -2,6 +2,8 @@
 
 A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers.
 
+This tool only works with qBittorrent.
+
 ## Installation
 
 ### Building from Source
