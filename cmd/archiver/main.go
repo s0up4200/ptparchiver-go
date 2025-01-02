@@ -35,7 +35,6 @@ var (
 			DisableDefaultCmd: true,
 		},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Set log level
 			zerolog.SetGlobalLevel(zerolog.InfoLevel)
 			if debug {
 				zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -71,7 +70,6 @@ func init() {
 }
 
 func findConfig() (string, error) {
-	// If config flag is set, use that
 	if cfgFile != "" {
 		return cfgFile, nil
 	}

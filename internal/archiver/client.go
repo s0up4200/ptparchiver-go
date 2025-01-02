@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/bencode"
 )
 
-const Version = "0.10.0"
+const Version = "0.10.0" // make sure we follow any changes made to the python version
 
 func init() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
@@ -38,7 +38,6 @@ func (e *OutdatedVersionError) Error() string {
 		e.CurrentVersion, e.LatestVersion)
 }
 
-// Add this struct for torrent metadata
 type torrentInfo struct {
 	Info struct {
 		Name string `bencode:"name"`
@@ -79,7 +78,7 @@ func NewClient(cfg *config.Config) (*Client, error) {
 	}, nil
 }
 
-// fetchFromPTP fetches a torrent file from PTP for the given container
+// fetches a torrent file for the given container
 func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, error) {
 	client := &http.Client{}
 
@@ -181,7 +180,7 @@ func (c *Client) FetchForContainer(name string) error {
 		return fmt.Errorf("failed to fetch torrent: %w", err)
 	}
 
-	// Extract torrent name
+	// extract torrent name
 	var t torrentInfo
 	if err := bencode.DecodeBytes(torrent, &t); err != nil {
 		c.log.Warn().Err(err).Msg("failed to decode torrent name")
@@ -214,7 +213,7 @@ func (c *Client) FetchAll() error {
 	var errors []error
 	containers := make([]string, 0, len(c.cfg.Containers))
 
-	// Get a sorted list of container names for consistent ordering
+	// get a sorted list of container names for consistent ordering
 	for name := range c.cfg.Containers {
 		containers = append(containers, name)
 	}
@@ -224,7 +223,7 @@ func (c *Client) FetchAll() error {
 			errors = append(errors, fmt.Errorf("container %s: %w", name, err))
 		}
 
-		// Only sleep if this isn't the last container
+		// only sleep if this isn't the last container
 		if i < len(containers)-1 {
 			time.Sleep(time.Duration(c.cfg.FetchSleep) * time.Second)
 		}
