@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/Masterminds/semver"
 	qbittorrent "github.com/autobrr/go-qbittorrent"
 	"github.com/docker/go-units"
 	"github.com/rs/zerolog"
@@ -26,19 +28,9 @@ type Client struct {
 	log   zerolog.Logger
 }
 
-type OutdatedVersionError struct {
-	CurrentVersion string
-	LatestVersion  string
-}
-
-// make sure we follow any changes made to the python version and abort if the version is outdated
+// make sure we're aware of any changes made to the python version
 // TODO: remove this if we don't need it
-const apiVersion = "0.10.0"
-
-func (e *OutdatedVersionError) Error() string {
-	return fmt.Sprintf("client is out-of-date (current: %s, latest: %s). Please update to continue",
-		e.CurrentVersion, e.LatestVersion)
-}
+const serverVersion = "0.10.0"
 
 type torrentInfo struct {
 	Info struct {
@@ -52,7 +44,7 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 		Str("buildVersion", ver).
 		//Str("buildCommit", commit).
 		//Str("buildDate", date).
-		Str("apiVersion", apiVersion).
+		Str("serverVersion", serverVersion).
 		Msg("initializing PTP archiver")
 
 	activeClients := make(map[string]struct{})
@@ -140,6 +132,31 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 		return nil, fmt.Errorf("failed to decode fetch response: %w", err)
 	}
 
+	// check version compatibility first
+	if fetchResp.ScriptVersion != "" {
+		// convert PTP version to semver format if needed
+		serverVerStr := fetchResp.ScriptVersion
+		if !strings.Contains(serverVerStr, ".") {
+			serverVerStr += ".0"
+		}
+
+		serverVer, err := semver.NewVersion(serverVerStr)
+		if err != nil {
+			c.log.Warn().Err(err).Str("version", serverVerStr).Msg("invalid server version format")
+		} else {
+			currentVer, err := semver.NewVersion(serverVersion)
+			if err != nil {
+				c.log.Warn().Err(err).Str("version", serverVersion).Msg("invalid current version format")
+			} else if serverVer.GreaterThan(currentVer) {
+				c.log.Warn().
+					Str("currentVersion", currentVer.String()).
+					Str("pythonVersion", serverVer.String()).
+					Msg("newer version of the official Python script is available - check for important changes")
+			}
+		}
+	}
+
+	// check for API errors
 	if fetchResp.Status != "Ok" {
 		errorMsg := "unknown error"
 		if fetchResp.Error != "" {
@@ -148,18 +165,6 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 			errorMsg = fetchResp.Message
 		}
 		return nil, fmt.Errorf("PTP API returned error: %s", errorMsg)
-	}
-
-	if fetchResp.ScriptVersion != "" {
-		currentVer := apiVersion
-		serverVer := fetchResp.ScriptVersion
-
-		if serverVer > currentVer {
-			return nil, &OutdatedVersionError{
-				CurrentVersion: currentVer,
-				LatestVersion:  serverVer,
-			}
-		}
 	}
 
 	downloadURL := fmt.Sprintf("%s/%s", c.cfg.BaseURL, "torrents.php")
@@ -358,20 +363,39 @@ func (c *Client) FetchAll() error {
 		containers = append(containers, name)
 	}
 
+	c.log.Debug().
+		Int("containerCount", len(containers)).
+		Msg("starting fetch for all containers")
+
 	for i, name := range containers {
+		c.log.Debug().
+			Str("container", name).
+			Int("index", i+1).
+			Int("total", len(containers)).
+			Msg("processing container")
+
 		if err := c.FetchForContainer(name); err != nil {
-			errors = append(errors, fmt.Errorf("container %s: %w", name, err))
+			errors = append(errors, fmt.Errorf("%s: %w", name, err))
 		}
 
 		// only sleep if this isn't the last container
 		if i < len(containers)-1 {
+			c.log.Debug().
+				Int("seconds", c.cfg.FetchSleep).
+				Msg("sleeping between container fetches")
 			time.Sleep(time.Duration(c.cfg.FetchSleep) * time.Second)
 		}
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("failed to fetch for some containers: %v", errors)
+		c.log.Error().
+			Int("failedCount", len(errors)).
+			Errs("errors", errors).
+			Msg("failed to fetch for some containers")
+		return nil
 	}
+
+	c.log.Info().Msg("successfully completed fetch for all containers")
 	return nil
 }
 
