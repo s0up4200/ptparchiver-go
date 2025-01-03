@@ -14,6 +14,7 @@ A Go implementation of PTP's archiver client utility that allows you to allocate
 - [Quick Start](#quick-start)
 - [Configuration](#configuration-example)
   - [Container Settings](#container-settings-explained)
+- [Space Management](#space-management)
 - [Usage](#usage)
   - [Running as a Service](#running-as-a-service)
 
