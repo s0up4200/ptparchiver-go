@@ -1,0 +1,10 @@
+services:
+  ptparchiver:
+    image: ghcr.io/s0up4200/ptparchiver-go:latest
+    container_name: ptparchiver
+    environment:
+      - TZ=UTC
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+    command: fetch
