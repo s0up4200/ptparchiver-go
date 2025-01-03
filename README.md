@@ -83,7 +83,7 @@ qbittorrent:
 containers:
   main:
     size: 5T # Total storage allocation
-    maxStalled: 5 # Max number of stalled torrents before pausing
+    maxStalled: 5 # Stop fetching new torrents when this many downloads are stalled
     category: ptp-archive # qBittorrent category
     tags: # Optional qBittorrent tags
       - ptp
@@ -92,6 +92,14 @@ containers:
 
 fetchSleep: 5 # Seconds between API requests, do not set lower than 5
 ```
+
+### Container Settings Explained
+
+- `size`: Total storage allocation for this container
+- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers.
+- `category`: qBittorrent category to assign to downloaded torrents
+- `tags`: Optional tags to assign to downloaded torrents
+- `client`: Which qBittorrent client configuration to use for this container
 
 ## Usage
 
