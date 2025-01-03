@@ -65,14 +65,46 @@ var (
 		Short: "Initialize a new config file",
 		RunE:  runInit,
 	}
+
+	runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "Run the archiver service continuously",
+		RunE:  runService,
+		Example: `  # Run the archiver service with default interval
+  ptparchiver run
+
+  # Run with custom interval (in minutes)
+  ptparchiver run --interval 30`,
+	}
+
+	interval int
 )
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
 
-	rootCmd.AddCommand(fetchCmd)
+	setupGroup := &cobra.Group{
+		ID:    "setup",
+		Title: "Configuration Commands:",
+	}
+
+	operationGroup := &cobra.Group{
+		ID:    "operation",
+		Title: "Archival Commands:",
+	}
+
+	rootCmd.AddGroup(setupGroup, operationGroup)
+
+	initCmd.GroupID = "setup"
+	runCmd.GroupID = "operation"
+	fetchCmd.GroupID = "operation"
+
 	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(fetchCmd)
+
+	runCmd.Flags().IntVar(&interval, "interval", 360, "fetch interval in minutes")
 }
 
 func findConfig() (string, error) {
@@ -181,6 +213,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 			},
 		},
 		FetchSleep: 5,
+		Interval:   360,
 	}
 
 	data, err := yaml.Marshal(defaultConfig)
@@ -204,4 +237,71 @@ func runInit(cmd *cobra.Command, args []string) error {
 	log.Info().Str("path", configPath).Msg("created new config file")
 	log.Info().Msg("remember to edit the config file and add your PTP API credentials")
 	return nil
+}
+
+func runService(cmd *cobra.Command, args []string) error {
+	configPath, err := findConfig()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	if !cmd.Flags().Changed("interval") && cfg.Interval > 0 {
+		interval = cfg.Interval
+	}
+
+	log.Info().
+		Int("interval", interval).
+		Str("schedule", fmt.Sprintf("every %d minutes", interval)).
+		Msg("starting archiver service")
+
+	client, err := archiver.NewClient(cfg, version, commit, date)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+
+	ticker := time.NewTicker(time.Duration(interval) * time.Minute)
+	defer ticker.Stop()
+
+	nextRun := time.Now().Add(time.Duration(interval) * time.Minute)
+
+	// initial fetch
+	if err := client.FetchAll(); err != nil {
+		log.Error().Err(err).Msg("failed to fetch torrents")
+	}
+	log.Info().
+		Time("nextRun", nextRun).
+		Msgf("scheduling next fetch in %s", formatDuration(time.Until(nextRun)))
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Info().Msg("performing scheduled fetch")
+			if err := client.FetchAll(); err != nil {
+				log.Error().Err(err).Msg("failed to fetch torrents")
+			}
+			nextRun = time.Now().Add(time.Duration(interval) * time.Minute)
+			log.Info().
+				Time("nextRun", nextRun).
+				Msgf("scheduling next fetch in %s", formatDuration(time.Until(nextRun)))
+		}
+	}
+}
+
+// formatDuration converts a duration to a human-readable string
+func formatDuration(d time.Duration) string {
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+
+	if hours > 0 {
+		if minutes > 0 {
+			return fmt.Sprintf("%d hours %d minutes", hours, minutes)
+		}
+		return fmt.Sprintf("%d hours", hours)
+	}
+	return fmt.Sprintf("%d minutes", minutes)
 }

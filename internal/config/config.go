@@ -7,6 +7,7 @@ type Config struct {
 	QBitClients map[string]QBitConfig `yaml:"qbittorrent"`
 	Containers  map[string]Container  `yaml:"containers"`
 	FetchSleep  int                   `yaml:"fetchSleep" default:"5"`
+	Interval    int                   `yaml:"interval" default:"360"`
 }
 
 type QBitConfig struct {
