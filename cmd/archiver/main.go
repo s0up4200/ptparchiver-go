@@ -14,6 +14,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var (
+	version string = "dev"
+	commit  string = "none"
+	date    string = "unknown"
+)
+
 func init() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 }
@@ -121,7 +127,7 @@ func runFetch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := archiver.NewClient(cfg)
+	client, err := archiver.NewClient(cfg, version, commit, date)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
