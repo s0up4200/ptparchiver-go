@@ -84,9 +84,25 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
 
-	rootCmd.AddCommand(fetchCmd)
+	setupGroup := &cobra.Group{
+		ID:    "setup",
+		Title: "Configuration Commands:",
+	}
+
+	operationGroup := &cobra.Group{
+		ID:    "operation",
+		Title: "Archival Commands:",
+	}
+
+	rootCmd.AddGroup(setupGroup, operationGroup)
+
+	initCmd.GroupID = "setup"
+	runCmd.GroupID = "operation"
+	fetchCmd.GroupID = "operation"
+
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(fetchCmd)
 
 	runCmd.Flags().IntVar(&interval, "interval", 360, "fetch interval in minutes")
 }
