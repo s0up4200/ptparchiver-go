@@ -4,6 +4,7 @@ go 1.23.4
 
 require (
 	github.com/autobrr/go-qbittorrent v1.11.0
+	github.com/docker/go-units v0.5.0
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/cobra v1.8.1
 	github.com/zeebo/bencode v1.0.0

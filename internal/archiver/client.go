@@ -9,6 +9,7 @@ import (
 	"time"
 
 	qbittorrent "github.com/autobrr/go-qbittorrent"
+	"github.com/docker/go-units"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/s0up4200/ptparchiver-go/internal/config"
@@ -46,13 +47,12 @@ type torrentInfo struct {
 }
 
 func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
-	logger := log.With().Str("component", "archiver").Logger()
+	logger := log.With().Logger()
 	logger.Info().
 		Str("buildVersion", ver).
 		//Str("buildCommit", commit).
 		//Str("buildDate", date).
 		Str("apiVersion", apiVersion).
-		Str("component", "archiver").
 		Msg("initializing PTP archiver")
 
 	activeClients := make(map[string]struct{})
@@ -67,14 +67,12 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 		if _, isActive := activeClients[name]; !isActive {
 			logger.Debug().
 				Str("client", name).
-				Str("component", "archiver").
 				Msg("skipping unused qBittorrent client")
 			continue
 		}
 
 		logger.Debug().
 			Str("client", name).
-			Str("component", "archiver").
 			Msg("connecting to qBittorrent client")
 
 		qbConfig := qbittorrent.Config{
@@ -91,7 +89,6 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 		}
 		logger.Info().
 			Str("client", name).
-			Str("component", "archiver").
 			Msg("successfully connected to qBittorrent client")
 
 		qbits[name] = qb
@@ -132,6 +129,8 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 
 	var fetchResp struct {
 		Status        string `json:"Status"`
+		Error         string `json:"Error"`
+		Message       string `json:"Message"`
 		ContainerID   string `json:"ContainerID"`
 		ScriptVersion string `json:"ScriptVersion"`
 		TorrentID     string `json:"TorrentID"`
@@ -142,7 +141,13 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 	}
 
 	if fetchResp.Status != "Ok" {
-		return nil, fmt.Errorf("PTP API returned error status")
+		errorMsg := "unknown error"
+		if fetchResp.Error != "" {
+			errorMsg = fetchResp.Error
+		} else if fetchResp.Message != "" {
+			errorMsg = fetchResp.Message
+		}
+		return nil, fmt.Errorf("PTP API returned error: %s", errorMsg)
 	}
 
 	if fetchResp.ScriptVersion != "" {
@@ -186,7 +191,6 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 		Str("status", fetchResp.Status).
 		Str("containerID", fetchResp.ContainerID).
 		Str("torrentID", fetchResp.TorrentID).
-		Str("component", "archiver").
 		Msg("received fetch response from PTP")
 
 	return torrentData, nil
@@ -224,7 +228,7 @@ func (c *Client) FetchForContainer(name string) error {
 		return fmt.Errorf("qBittorrent client %s not found", container.Client)
 	}
 
-	// check stalled downloads count in category
+	// First check stalled downloads count in category
 	stalledCount, err := c.countStalledTorrents(qb, container.Category)
 	if err != nil {
 		return err
@@ -235,7 +239,6 @@ func (c *Client) FetchForContainer(name string) error {
 		Str("category", container.Category).
 		Int("stalledCount", stalledCount).
 		Int("maxStalled", container.MaxStalled).
-		Str("component", "archiver").
 		Msg("checking stalled downloads")
 
 	if stalledCount >= container.MaxStalled {
@@ -244,14 +247,12 @@ func (c *Client) FetchForContainer(name string) error {
 			Str("category", container.Category).
 			Int("stalledCount", stalledCount).
 			Int("maxStalled", container.MaxStalled).
-			Str("component", "archiver").
 			Msg("skipping fetch due to too many stalled downloads")
 		return nil
 	}
 
 	c.log.Info().
 		Str("container", name).
-		Str("component", "archiver").
 		Msg("fetching torrent for container")
 
 	torrent, err := c.fetchFromPTP(name, container)
@@ -259,23 +260,66 @@ func (c *Client) FetchForContainer(name string) error {
 		c.log.Error().
 			Err(err).
 			Str("container", name).
-			Str("component", "archiver").
 			Msg("failed to fetch torrent from PTP")
 		return fmt.Errorf("failed to fetch torrent: %w", err)
 	}
 
-	// extract torrent name
+	// extract torrent info
 	var t struct {
 		Info struct {
-			Name string `bencode:"name"`
+			Name   string `bencode:"name"`
+			Length int64  `bencode:"length"`
+			Files  []struct {
+				Length int64    `bencode:"length"`
+				Path   []string `bencode:"path"`
+			} `bencode:"files"`
 		} `bencode:"info"`
 	}
 	if err := bencode.DecodeBytes(torrent, &t); err != nil {
 		c.log.Warn().
 			Err(err).
-			Str("component", "archiver").
-			Msg("failed to decode torrent name")
+			Msg("failed to decode torrent info")
 		t.Info.Name = "unknown"
+	}
+
+	// Calculate total size
+	var totalSize int64
+	if t.Info.Length > 0 {
+		totalSize = t.Info.Length
+	} else {
+		for _, file := range t.Info.Files {
+			totalSize += file.Length
+		}
+	}
+
+	// Check available disk space
+	freeSpace, err := qb.GetFreeSpaceOnDisk()
+	if err != nil {
+		c.log.Warn().
+			Err(err).
+			Str("container", name).
+			Msg("failed to get free space, skipping fetch")
+		return nil
+	}
+
+	// Add some buffer (10% extra) to the required space
+	requiredSpace := uint64(float64(totalSize) * 1.1)
+
+	c.log.Debug().
+		Str("container", name).
+		Str("availableSpace", units.HumanSize(float64(freeSpace))).
+		Str("requiredSpace", units.HumanSize(float64(requiredSpace))).
+		Str("torrentSize", units.HumanSize(float64(totalSize))).
+		Msg("checking disk space")
+
+	if freeSpace < requiredSpace {
+		c.log.Info().
+			Str("container", name).
+			Str("freeSpace", units.HumanSize(float64(freeSpace))).
+			Str("requiredSpace", units.HumanSize(float64(requiredSpace))).
+			Str("torrentName", t.Info.Name).
+			Msg("skipping fetch due to insufficient disk space")
+		return nil
 	}
 
 	opts := map[string]string{
@@ -291,7 +335,6 @@ func (c *Client) FetchForContainer(name string) error {
 			Err(err).
 			Str("container", name).
 			Str("client", container.Client).
-			Str("component", "archiver").
 			Msg("failed to add torrent to qBittorrent")
 		return fmt.Errorf("failed to add torrent to qbittorrent: %w", err)
 	}
@@ -301,7 +344,7 @@ func (c *Client) FetchForContainer(name string) error {
 		Str("client", container.Client).
 		Str("category", container.Category).
 		Str("torrent", t.Info.Name).
-		Str("component", "archiver").
+		Str("size", units.HumanSize(float64(totalSize))).
 		Msg("successfully added torrent to qBittorrent")
 
 	return nil

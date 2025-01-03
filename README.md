@@ -108,11 +108,21 @@ interval: 360 # Minutes between fetch attempts when running as a service (defaul
 
 ### Container Settings Explained
 
-- `size`: Total storage allocation for this container
+- `size`: Total storage allocation for this container. This is used by PTP to track total allocation, not for local space management.
 - `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers.
 - `category`: qBittorrent category to assign to downloaded torrents
 - `tags`: Optional tags to assign to downloaded torrents
 - `client`: Which qBittorrent client configuration to use for this container
+
+### Space Management
+
+The client performs disk space checks before adding each torrent:
+
+- Checks available space in qBittorrent's download directory
+- Requires enough free space for the torrent size plus a 10% buffer
+- Skips the torrent if insufficient space is available
+
+This ensures safe downloading without running out of disk space, independent of the container's configured size.
 
 ## Usage
 
