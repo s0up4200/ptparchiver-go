@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -78,6 +81,12 @@ var (
 	}
 
 	interval int
+
+	versionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Show version information and check for updates",
+		RunE:  runVersion,
+	}
 )
 
 func init() {
@@ -103,6 +112,7 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(fetchCmd)
+	rootCmd.AddCommand(versionCmd)
 
 	runCmd.Flags().IntVar(&interval, "interval", 360, "fetch interval in minutes")
 }
@@ -304,4 +314,76 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%d hours", hours)
 	}
 	return fmt.Sprintf("%d minutes", minutes)
+}
+
+func runVersion(cmd *cobra.Command, args []string) error {
+	// Show current version using structured logging
+	commitHash := "none"
+	if len(commit) >= 7 {
+		commitHash = commit[:7]
+	}
+
+	log.Info().
+		Str("version", version).
+		Str("commit", commitHash).
+		Str("buildDate", date).
+		Msg("PTP Archiver version info")
+
+	// Check for latest release from GitHub API
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/s0up4200/ptparchiver-go/releases/latest", nil)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to create request")
+		return nil
+	}
+
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "PTPArchiver/"+version)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to check for updates")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Warn().Str("status", resp.Status).Msg("GitHub API request failed")
+		return nil
+	}
+
+	var release struct {
+		TagName     string    `json:"tag_name"`
+		PublishedAt time.Time `json:"published_at"`
+		HTMLURL     string    `json:"html_url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		log.Warn().Err(err).Msg("failed to parse GitHub response")
+		return nil
+	}
+
+	latestVersion := strings.TrimPrefix(release.TagName, "v")
+
+	if version == "dev" {
+		log.Info().
+			Str("latestRelease", latestVersion).
+			Time("publishedAt", release.PublishedAt).
+			Msg("running development version")
+		return nil
+	}
+
+	if version != latestVersion {
+		log.Info().
+			Str("current", version).
+			Str("latest", latestVersion).
+			Time("publishedAt", release.PublishedAt).
+			Str("updateUrl", release.HTMLURL).
+			Msg("update available")
+	} else {
+		log.Info().
+			Time("publishedAt", release.PublishedAt).
+			Msg("you are running the latest version")
+	}
+
+	return nil
 }
