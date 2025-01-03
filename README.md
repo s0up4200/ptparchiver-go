@@ -5,6 +5,18 @@ A Go implementation of PTP's archiver client utility that allows you to allocate
 > [!WARNING]  
 > **Important Note**: This implementation follows the original Python script's version (`0.10.0`). The program will stop working if the original Python script is updated, requiring an update of this Go version to maintain compatibility. This is to ensure protocol compliance and correct functionality.
 
+## Table of Contents
+
+- [Installation](#installation)
+  - [Downloading the binary](#downloading-the-binary)
+  - [Building from Source](#building-from-source)
+  - [Installing using Go](#installing-using-go)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration-example)
+  - [Container Settings](#container-settings-explained)
+- [Usage](#usage)
+  - [Running as a Service](#running-as-a-service)
+
 ## Installation
 
 ### Downloading the binary
@@ -91,6 +103,7 @@ containers:
     client: seedbox1 # Which qBittorrent client to use
 
 fetchSleep: 5 # Seconds between API requests, do not set lower than 5
+interval: 360 # Minutes between fetch attempts when running as a service (default: 6 hours)
 ```
 
 ### Container Settings Explained
@@ -121,8 +134,29 @@ ptparchiver --debug fetch
 
 # Show help
 ptparchiver help
+
+# Run as a service
+ptparchiver run              # Run continuously using interval from config (default: 6 hours)
+ptparchiver run --interval 30  # Override config and fetch every 30 minutes
 ```
 
-## License
+### Running as a Service
 
-MIT
+The `run` command starts ptparchiver in service mode, continuously fetching torrents at a specified interval. The interval can be configured in three ways (in order of precedence):
+
+1. Command line flag: `--interval <minutes>`
+2. Config file: `interval: <minutes>`
+3. Default value: 360 minutes (6 hours)
+
+When running in Docker, you can configure the interval in your docker-compose.yml:
+
+```yaml
+services:
+  ptparchiver:
+    image: ghcr.io/s0up4200/ptparchiver-go:latest
+    container_name: ptparchiver
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+    command: run # Runs as a service using interval from config
+```

@@ -7,4 +7,4 @@ services:
     volumes:
       - ./config:/config
     restart: unless-stopped
-    command: fetch
+    command: run # --interval 360 to override config
