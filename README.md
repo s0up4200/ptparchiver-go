@@ -1,6 +1,6 @@
 # PTP Archiver Go
 
-A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. Supports qBittorrent, rTorrent, Deluge, and watchDir.
+A Go implementation of PTP Archive Team client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. Supports qBittorrent, rTorrent, Deluge, and watchDir.
 
 ## Table of Contents
 
