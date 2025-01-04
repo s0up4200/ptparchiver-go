@@ -114,8 +114,8 @@ interval: 360 # Minutes between fetch attempts when running as a service (defaul
 - `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting only works with qBittorrent containers and has no effect on watchDir containers.
 - `category`: qBittorrent category to assign to downloaded torrents (qBittorrent only)
 - `tags`: Optional tags to assign to downloaded torrents (qBittorrent only)
-- `client`: Which qBittorrent client configuration to use for this container (required for qBittorrent)
-- `watchDir`: Directory to save .torrent files to (required for watchdir)
+- `client`: Which qBittorrent client configuration to use for this container (required for qBittorrent containers)
+- `watchDir`: Directory to save .torrent files to (required for watchDir containers)
 
 Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent containers. They have no effect when using watchdir mode, but setting them won't cause any issues.
 
@@ -123,13 +123,16 @@ You must specify either `client` for qBittorrent or `watchDir` for watch directo
 
 ### Space Management
 
-The client performs disk space checks before adding each torrent:
+For qBittorrent containers:
 
-- Checks available space in qBittorrent's download directory or watch directory
+- Checks available space in qBittorrent's download directory
 - Requires enough free space for the torrent size plus a 10% buffer
 - Skips the torrent if insufficient space is available
 
-This ensures safe downloading without running out of disk space, independent of the container's configured size.
+For watchDir containers:
+
+- No space management is performed at this time
+- Your torrent client will need to handle space management
 
 ## Usage
 
