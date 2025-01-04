@@ -292,29 +292,35 @@ func (c *Client) FetchForContainer(name string) error {
 		return fmt.Errorf("container %s must specify either watchDir or client", name)
 	}
 
-	// Only check stalled downloads for qBittorrent clients
+	// Only check stalled downloads for qBittorrent and rTorrent clients
 	if container.Client != "" {
-		// Check stalled downloads count
-		stalledCount, err := torrentClient.CountStalledTorrents(container.Category)
-		if err != nil {
-			return err
-		}
+		// Check if the client is qBittorrent or rTorrent
+		_, isQbit := torrentClient.(*client.QBitClient)
+		_, isRtorr := torrentClient.(*client.RTorrentClient)
 
-		c.log.Debug().
-			Str("container", name).
-			Str("category", container.Category).
-			Int("stalledCount", stalledCount).
-			Int("maxStalled", container.MaxStalled).
-			Msg("checking stalled downloads")
+		if (isQbit || isRtorr) && container.MaxStalled > 0 {
+			// Check stalled downloads count
+			stalledCount, err := torrentClient.CountStalledTorrents(container.Category)
+			if err != nil {
+				return err
+			}
 
-		if stalledCount >= container.MaxStalled {
-			c.log.Info().
+			c.log.Debug().
 				Str("container", name).
 				Str("category", container.Category).
 				Int("stalledCount", stalledCount).
 				Int("maxStalled", container.MaxStalled).
-				Msg("skipping fetch due to too many stalled downloads")
-			return nil
+				Msg("checking stalled downloads")
+
+			if stalledCount >= container.MaxStalled {
+				c.log.Info().
+					Str("container", name).
+					Str("category", container.Category).
+					Int("stalledCount", stalledCount).
+					Int("maxStalled", container.MaxStalled).
+					Msg("skipping fetch due to too many stalled downloads")
+				return nil
+			}
 		}
 	}
 

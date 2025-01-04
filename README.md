@@ -74,6 +74,8 @@ ptparchiver fetch hetzner
 
 ## Configuration Example
 
+Remove or comment out any sections you don't need.
+
 ```yaml
 # PTP API credentials
 apiKey: your-api-key
@@ -100,37 +102,35 @@ rtorrent:
 
 # Define Deluge clients
 deluge:
-  seedbox3:
-    url: http://localhost:8112 # Deluge WebUI URL
-    username: admin # Deluge WebUI username
-    password: deluge # Deluge WebUI password
-    basicUser: "" # Optional HTTP basic auth username
-    basicPass: "" # Optional HTTP basic auth password
+  deluge1:
+    host: localhost # Deluge daemon hostname
+    port: 58846 # Deluge daemon port
+    username: admin # Deluge daemon username
+    password: adminadmin # Deluge daemon password
+    basicUser: "" # Optional HTTP basic auth
+    basicPass: "" # Optional HTTP basic auth
 
 # Define archive containers
 containers:
   qbit-container:
-    size: 5T # Total storage allocation
-    maxStalled: 5 # Stop fetching new torrents when this many downloads are stalled
-    category: ptp-archive # Torrent category/label
-    #tags: # Optional qBittorrent tags (qBittorrent only)
-    #  - ptp
-    #  - archive
-    client: seedbox1 # Which client to use
+    size: 5T
+    maxStalled: 5 # Only for qBittorrent and rTorrent
+    category: ptp-archive
+    client: qbit1
+    startPaused: false # Optional, add torrents in paused state
 
   rtorrent-container:
-    size: 8T # Total storage allocation
-    maxStalled: 3 # Stop fetching new torrents when this many downloads are stalled
-    category: ptp-archive # Torrent category/label
-    client: seedbox2 # Which client to use
-    startPaused: true # Add torrents in a stopped state (optional)
+    size: 5T
+    maxStalled: 5 # Only for qBittorrent and rTorrent
+    category: ptp-archive
+    client: rtorrent1
+    startPaused: false
 
   deluge-container:
-    size: 5T # Total storage allocation
-    maxStalled: 3 # Stop fetching new torrents when this many downloads are stalled
-    category: ptp-archive # Torrent label
-    client: seedbox3 # Which client to use
-    startPaused: true # Add torrents in a stopped state (optional)
+    size: 5T
+    category: ptp-archive
+    client: deluge1
+    startPaused: false # Optional, add torrents in paused state
 
   watch-container:
     size: 5T # Total storage allocation
@@ -143,12 +143,13 @@ interval: 360 # Minutes between fetch attempts when running as a service (defaul
 ### Container Settings Explained
 
 - `size`: Total storage allocation for this container. This is used by PTP to track total allocation, not for local space management.
-- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting works with qBittorrent, rTorrent, and Deluge containers but has no effect on watchDir containers.
+- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting works with qBittorrent and rTorrent containers but has no effect on Deluge or watchDir containers.
 - `category`: Category/label to assign to downloaded torrents (works with all clients)
 - `tags`: Optional tags to assign to downloaded torrents (qBittorrent only)
 - `client`: Which torrent client configuration to use for this container (required for qBittorrent, rTorrent, and Deluge containers)
 - `watchDir`: Directory to save .torrent files to (required for watchDir containers)
 - `startPaused`: Add torrents in a stopped/paused state (optional, works with all clients)
+- `addPaused`: Alias for startPaused for backward compatibility
 
 Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent, rTorrent, and Deluge containers (except `tags` which is qBittorrent only). They have no effect when using watchdir mode, but setting them won't cause any issues.
 
