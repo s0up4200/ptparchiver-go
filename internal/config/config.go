@@ -1,13 +1,14 @@
 package config
 
 type Config struct {
-	ApiKey      string                `yaml:"apiKey"`
-	ApiUser     string                `yaml:"apiUser"`
-	BaseURL     string                `yaml:"baseUrl" default:"https://passthepopcorn.me"`
-	QBitClients map[string]QBitConfig `yaml:"qbittorrent"`
-	Containers  map[string]Container  `yaml:"containers"`
-	FetchSleep  int                   `yaml:"fetchSleep" default:"5"`
-	Interval    int                   `yaml:"interval" default:"360"`
+	ApiKey       string                 `yaml:"apiKey"`
+	ApiUser      string                 `yaml:"apiUser"`
+	BaseURL      string                 `yaml:"baseUrl" default:"https://passthepopcorn.me"`
+	QBitClients  map[string]QBitConfig  `yaml:"qbittorrent"`
+	RTorrClients map[string]RTorrConfig `yaml:"rtorrent"`
+	Containers   map[string]Container   `yaml:"containers"`
+	FetchSleep   int                    `yaml:"fetchSleep" default:"5"`
+	Interval     int                    `yaml:"interval" default:"360"`
 }
 
 type QBitConfig struct {
@@ -16,6 +17,12 @@ type QBitConfig struct {
 	Password  string `yaml:"password"`
 	BasicUser string `yaml:"basicUser,omitempty"`
 	BasicPass string `yaml:"basicPass,omitempty"`
+}
+
+type RTorrConfig struct {
+	URL       string `yaml:"url"`                 // SCGI or HTTP(S) URL to rTorrent's XMLRPC endpoint
+	BasicUser string `yaml:"basicUser,omitempty"` // Optional HTTP basic auth username
+	BasicPass string `yaml:"basicPass,omitempty"` // Optional HTTP basic auth password
 }
 
 type Container struct {
@@ -27,6 +34,10 @@ type Container struct {
 	MaxStalled int      `yaml:"maxStalled"`
 	Category   string   `yaml:"category"`
 	Tags       []string `yaml:"tags,omitempty"`
-	Client     string   `yaml:"client,omitempty"`   // Name of the qbittorrent client to use (optional)
+	Client     string   `yaml:"client,omitempty"`   // Name of the torrent client to use (optional)
 	WatchDir   string   `yaml:"watchDir,omitempty"` // Directory to save .torrent files to (optional)
+	// StartPaused determines if torrents should be added in a paused/stopped state
+	StartPaused bool `yaml:"startPaused,omitempty"`
+	// AddPaused is an alias for StartPaused for backward compatibility
+	AddPaused bool `yaml:"addPaused,omitempty"`
 }

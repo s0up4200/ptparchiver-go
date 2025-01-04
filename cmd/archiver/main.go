@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -213,12 +214,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 		ApiUser: "",
 		BaseURL: "https://passthepopcorn.me",
 		QBitClients: map[string]config.QBitConfig{
-			"default": {
+			"qbit-local": {
 				URL:       "http://localhost:8080",
 				Username:  "admin",
 				Password:  "adminadmin",
 				BasicUser: "",
 				BasicPass: "",
+			},
+		},
+		RTorrClients: map[string]config.RTorrConfig{
+			"rtorrent-remote": {
+				URL:       "http://mydomain.com/rutorrent/plugins/httprpc/action.php",
+				BasicUser: "", // Optional HTTP basic auth username
+				BasicPass: "", // Optional HTTP basic auth password
 			},
 		},
 		Containers: map[string]config.Container{
@@ -227,7 +235,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 				MaxStalled: 5,
 				Category:   "ptp-archive",
 				Tags:       []string{"ptp", "archive"},
-				Client:     "default",
+				Client:     "qbit-local",
+			},
+			"rtorrent-container": {
+				Size:       "5T",
+				MaxStalled: 5,
+				Category:   "ptp-archive",
+				Client:     "rtorrent-local",
 			},
 			"watch-container": {
 				Size:     "5T",
@@ -244,10 +258,22 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	configContent := `# PTP Archiver Configuration
-# Fill in your PTP API credentials
-# Configure your qBittorrent clients
-# Set up your containers with desired sizes and settings
-# Read full guide at /wiki.php?action=article&id=310
+#
+# Fill in your PTP API credentials and configure your torrent clients.
+# You can use qBittorrent, rTorrent, or a watch directory for your containers.
+#
+# For qBittorrent:
+# - URL format: http(s)://hostname:port
+# - Optional HTTP basic auth credentials
+#
+# For rTorrent/ruTorrent:
+# - URL format: http(s)://hostname/rutorrent/plugins/httprpc/action.php
+# - Optional HTTP basic auth credentials
+#
+# For watch directories:
+# - Just specify the path where .torrent files should be saved
+#
+# Read the full guide at /wiki.php?action=article&id=310
 
 `
 	configContent += string(data)
