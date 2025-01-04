@@ -1,6 +1,6 @@
 # PTP Archiver Go
 
-A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. Supports both qBittorrent and watchDir.
+A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. Supports qBittorrent, rTorrent, and watchDir.
 
 ## Table of Contents
 
@@ -89,16 +89,32 @@ qbittorrent:
     basicUser: "" # optional HTTP basic auth
     basicPass: "" # optional HTTP basic auth
 
+# Define rTorrent clients
+rtorrent:
+  remote_server:
+    url: http://mydomain.com/rutorrent/plugins/httprpc/action.php # Remote ruTorrent XMLRPC endpoint
+    basicUser: "" # Optional HTTP basic auth username
+    basicPass: "" # Optional HTTP basic auth password
+  local_server:
+    url: https://127.0.0.1/rutorrent/plugins/httprpc/action.php # Local ruTorrent XMLRPC endpoint
+
 # Define archive containers
 containers:
   qbit-container:
     size: 5T # Total storage allocation
-    maxStalled: 5 # Stop fetching new torrents when this many downloads are stalled (qBittorrent only)
-    category: ptp-archive # qBittorrent category
-    #tags: # Optional qBittorrent tags
+    maxStalled: 5 # Stop fetching new torrents when this many downloads are stalled
+    category: ptp-archive # Torrent category/label
+    #tags: # Optional qBittorrent tags (qBittorrent only)
     #  - ptp
     #  - archive
-    client: seedbox1 # Which qBittorrent client to use
+    client: seedbox1 # Which client to use
+
+  rtorrent-container:
+    size: 8T # Total storage allocation
+    maxStalled: 3 # Stop fetching new torrents when this many downloads are stalled
+    category: ptp-archive # Torrent category/label
+    client: seedbox2 # Which client to use
+    startPaused: true # Add torrents in a stopped state (optional)
 
   watch-container:
     size: 5T # Total storage allocation
@@ -111,25 +127,26 @@ interval: 360 # Minutes between fetch attempts when running as a service (defaul
 ### Container Settings Explained
 
 - `size`: Total storage allocation for this container. This is used by PTP to track total allocation, not for local space management.
-- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting only works with qBittorrent containers and has no effect on watchDir containers.
-- `category`: qBittorrent category to assign to downloaded torrents (qBittorrent only)
+- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting works with qBittorrent and rTorrent containers but has no effect on watchDir containers.
+- `category`: Category/label to assign to downloaded torrents (qBittorrent and rTorrent only)
 - `tags`: Optional tags to assign to downloaded torrents (qBittorrent only)
-- `client`: Which qBittorrent client configuration to use for this container (required for qBittorrent containers)
+- `client`: Which torrent client configuration to use for this container (required for qBittorrent and rTorrent containers)
 - `watchDir`: Directory to save .torrent files to (required for watchDir containers)
+- `startPaused`: Add torrents in a stopped/paused state (optional, works with qBittorrent and rTorrent)
 
-Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent containers. They have no effect when using watchdir mode, but setting them won't cause any issues.
+Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent and rTorrent containers (except `tags` which is qBittorrent only). They have no effect when using watchdir mode, but setting them won't cause any issues.
 
-You must specify either `client` for qBittorrent or `watchDir` for watch directory mode. The two modes cannot be used together in the same container.
+You must specify either `client` for qBittorrent/rTorrent or `watchDir` for watch directory mode. The two modes cannot be used together in the same container.
 
 ### Space Management
 
 For qBittorrent containers:
 
-- Checks available space in qBittorrent's download directory
+- Checks available space in the client's download directory
 - Requires enough free space for the torrent size plus a 10% buffer
 - Skips the torrent if insufficient space is available
 
-For watchDir containers:
+For rTorrent and watchDir containers:
 
 - No space management is performed at this time
 - Your torrent client will need to handle space management

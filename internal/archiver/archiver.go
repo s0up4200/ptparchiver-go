@@ -47,7 +47,7 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 	// Initialize clients map
 	clients := make(map[string]client.TorrentClient)
 
-	// Find which qBittorrent clients are needed
+	// Find which clients are needed
 	activeClients := make(map[string]struct{})
 	for _, container := range cfg.Containers {
 		if container.Client != "" {
@@ -84,6 +84,35 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 			Msg("successfully connected to qBittorrent client")
 
 		clients[name] = qb
+	}
+
+	// Initialize only the rTorrent clients that are used
+	for name, rtorrConfig := range cfg.RTorrClients {
+		if _, isActive := activeClients[name]; !isActive {
+			logger.Debug().
+				Str("client", name).
+				Msg("skipping unused rTorrent client")
+			continue
+		}
+
+		logger.Debug().
+			Str("client", name).
+			Msg("connecting to rTorrent client")
+
+		rt, err := client.NewRTorrentClient(
+			rtorrConfig.URL,
+			rtorrConfig.BasicUser,
+			rtorrConfig.BasicPass,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize rtorrent client %s: %w", name, err)
+		}
+
+		logger.Info().
+			Str("client", name).
+			Msg("successfully connected to rTorrent client")
+
+		clients[name] = rt
 	}
 
 	return &Client{
@@ -230,7 +259,7 @@ func (c *Client) FetchForContainer(name string) error {
 		// Use qBittorrent client
 		torrentClient, ok = c.clients[container.Client]
 		if !ok {
-			c.log.Error().Str("client", container.Client).Msg("qBittorrent client not found")
+			c.log.Error().Str("client", container.Client).Msg("client not found")
 			return fmt.Errorf("qBittorrent client %s not found", container.Client)
 		}
 	} else {
@@ -305,34 +334,41 @@ func (c *Client) FetchForContainer(name string) error {
 		}
 	}
 
-	// Check available disk space
-	freeSpace, err := torrentClient.GetFreeSpace()
-	if err != nil {
-		c.log.Warn().
-			Err(err).
+	// Check available disk space - skip for rTorrent clients
+	if _, ok := torrentClient.(*client.RTorrentClient); ok {
+		c.log.Debug().
 			Str("container", name).
-			Msg("failed to get free space, skipping fetch")
-		return nil
-	}
+			Str("torrentSize", units.HumanSize(float64(totalSize))).
+			Msg("skipping disk space check for rTorrent client")
+	} else {
+		freeSpace, err := torrentClient.GetFreeSpace()
+		if err != nil {
+			c.log.Warn().
+				Err(err).
+				Str("container", name).
+				Msg("failed to get free space, skipping fetch")
+			return nil
+		}
 
-	// Add some buffer (10% extra) to the required space
-	requiredSpace := uint64(float64(totalSize) * 1.1)
+		// Add some buffer (10% extra) to the required space
+		requiredSpace := uint64(float64(totalSize) * 1.1)
 
-	c.log.Debug().
-		Str("container", name).
-		Str("availableSpace", units.HumanSize(float64(freeSpace))).
-		Str("requiredSpace", units.HumanSize(float64(requiredSpace))).
-		Str("torrentSize", units.HumanSize(float64(totalSize))).
-		Msg("checking disk space")
-
-	if freeSpace < requiredSpace {
-		c.log.Info().
+		c.log.Debug().
 			Str("container", name).
-			Str("freeSpace", units.HumanSize(float64(freeSpace))).
+			Str("availableSpace", units.HumanSize(float64(freeSpace))).
 			Str("requiredSpace", units.HumanSize(float64(requiredSpace))).
-			Str("torrentName", t.Info.Name).
-			Msg("skipping fetch due to insufficient disk space")
-		return nil
+			Str("torrentSize", units.HumanSize(float64(totalSize))).
+			Msg("checking disk space")
+
+		if freeSpace < requiredSpace {
+			c.log.Info().
+				Str("container", name).
+				Str("freeSpace", units.HumanSize(float64(freeSpace))).
+				Str("requiredSpace", units.HumanSize(float64(requiredSpace))).
+				Str("torrentName", t.Info.Name).
+				Msg("skipping fetch due to insufficient disk space")
+			return nil
+		}
 	}
 
 	opts := map[string]string{
@@ -340,6 +376,9 @@ func (c *Client) FetchForContainer(name string) error {
 	}
 	if len(container.Tags) > 0 {
 		opts["tags"] = strings.Join(container.Tags, ",")
+	}
+	if container.StartPaused || container.AddPaused {
+		opts["paused"] = "true"
 	}
 
 	err = torrentClient.AddTorrent(torrent, t.Info.Name, opts)
