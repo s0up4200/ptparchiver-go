@@ -41,7 +41,30 @@ func (c *QBitClient) AddTorrent(torrentData []byte, name string, opts map[string
 		Str("name", name).
 		Interface("options", opts).
 		Msg("adding torrent to qbittorrent")
-	return c.client.AddTorrentFromMemory(torrentData, opts)
+
+	// Create qBittorrent specific options
+	qbtOpts := &qbittorrent.TorrentAddOptions{}
+
+	// Set paused state
+	if paused, ok := opts["paused"]; ok && paused == "true" {
+		qbtOpts.Paused = true
+	}
+
+	// Set category if provided
+	if category, ok := opts["category"]; ok {
+		qbtOpts.Category = category
+	}
+
+	// Set download path if provided
+	if downloadDir, ok := opts["download_dir"]; ok {
+		qbtOpts.SavePath = downloadDir
+		qbtOpts.AutoTMM = false
+	}
+
+	// Prepare the options for the API call
+	options := qbtOpts.Prepare()
+
+	return c.client.AddTorrentFromMemory(torrentData, options)
 }
 
 // GetFreeSpace returns available disk space in bytes
