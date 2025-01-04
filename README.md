@@ -6,6 +6,7 @@ A Go implementation of PTP's archiver client utility that allows you to allocate
 
 - [Installation](#installation)
   - [Downloading the binary](#downloading-the-binary)
+  - [Docker Compose](#docker-compose)
   - [Building from Source](#building-from-source)
   - [Installing using Go](#installing-using-go)
 - [Quick Start](#quick-start)
@@ -19,13 +20,15 @@ A Go implementation of PTP's archiver client utility that allows you to allocate
 
 ### Downloading the binary
 
-1. Download the binary for your operating system:
+1. Download the binary for your operating system from the [releases page](https://github.com/s0up4200/ptparchiver-go/releases/latest).
+
+   If you run linux x86_64, you can use the following command to download the latest release:
 
    ```bash
    wget $(curl -s https://api.github.com/repos/s0up4200/ptparchiver-go/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
    ```
 
-2. Extract the downloaded archive to `/usr/local/bin`:
+2. Extract the binary to `/usr/local/bin`:
 
    ```bash
    sudo tar -C /usr/local/bin -xzf ptparchiver*.tar.gz
@@ -36,7 +39,17 @@ A Go implementation of PTP's archiver client utility that allows you to allocate
    ptparchiver --help
    ```
 
+### Docker Compose
+
+See [docker-compose.yml](docker-compose.yml) for an example.
+
+```bash
+docker compose up -d
+```
+
 ### Building from Source
+
+Requires Go to be installed. Get it from [here](https://go.dev/dl/).
 
 ```bash
 git clone https://github.com/s0up4200/ptparchiver-go.git
@@ -62,17 +75,23 @@ ptparchiver init
 
 2. Edit the generated config file (located in either current directory or `~/.config/ptparchiver-go/config.yaml`)
 
+```bash
+nano ~/.config/ptparchiver-go/config.yaml
+```
+
 3. Start archiving:
 
 ```bash
-# Fetch torrents for all containers
+# Fetch torrents for all active containers
 ptparchiver fetch
 
 # Fetch torrents for a specific container
-ptparchiver fetch hetzner
+ptparchiver fetch container1
 ```
 
 ## Configuration Example
+
+Remove or comment out any sections you don't need.
 
 ```yaml
 # PTP API credentials
@@ -100,57 +119,54 @@ rtorrent:
 
 # Define Deluge clients
 deluge:
-  seedbox3:
-    url: http://localhost:8112 # Deluge WebUI URL
-    username: admin # Deluge WebUI username
-    password: deluge # Deluge WebUI password
-    basicUser: "" # Optional HTTP basic auth username
-    basicPass: "" # Optional HTTP basic auth password
+  deluge1:
+    host: localhost # Deluge daemon hostname
+    port: 58846 # Deluge daemon port
+    username: admin # Deluge daemon username
+    password: adminadmin # Deluge daemon password
+    basicUser: "" # Optional HTTP basic auth
+    basicPass: "" # Optional HTTP basic auth
 
 # Define archive containers
 containers:
   qbit-container:
-    size: 5T # Total storage allocation
-    maxStalled: 5 # Stop fetching new torrents when this many downloads are stalled
-    category: ptp-archive # Torrent category/label
-    #tags: # Optional qBittorrent tags (qBittorrent only)
-    #  - ptp
-    #  - archive
-    client: seedbox1 # Which client to use
+    size: 5T
+    maxStalled: 5 # Only for qBittorrent and rTorrent
+    category: ptp-archive
+    client: qbit1
+    startPaused: false # Optional, add torrents in paused state
 
   rtorrent-container:
-    size: 8T # Total storage allocation
-    maxStalled: 3 # Stop fetching new torrents when this many downloads are stalled
-    category: ptp-archive # Torrent category/label
-    client: seedbox2 # Which client to use
-    startPaused: true # Add torrents in a stopped state (optional)
+    size: 5T
+    maxStalled: 5 # Only for qBittorrent and rTorrent
+    category: ptp-archive
+    client: rtorrent1
+    startPaused: false
 
   deluge-container:
-    size: 5T # Total storage allocation
-    maxStalled: 3 # Stop fetching new torrents when this many downloads are stalled
-    category: ptp-archive # Torrent label
-    client: seedbox3 # Which client to use
-    startPaused: true # Add torrents in a stopped state (optional)
+    size: 5T
+    category: ptp-archive
+    client: deluge1
+    startPaused: false # Optional, add torrents in paused state
 
   watch-container:
     size: 5T # Total storage allocation
     watchDir: /path/to/watch/directory # Directory to save .torrent files to
 
-fetchSleep: 5 # Seconds between API requests, do not set lower than 5
+fetchSleep: 5 # Seconds between API requests, do not set lower than 5 unless you want to get banned
 interval: 360 # Minutes between fetch attempts when running as a service (default: 6 hours)
 ```
 
 ### Container Settings Explained
 
 - `size`: Total storage allocation for this container. This is used by PTP to track total allocation, not for local space management.
-- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting works with qBittorrent, rTorrent, and Deluge containers but has no effect on watchDir containers.
+- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting works with qBittorrent and rTorrent containers but has no effect on Deluge or watchDir containers.
 - `category`: Category/label to assign to downloaded torrents (works with all clients)
 - `tags`: Optional tags to assign to downloaded torrents (qBittorrent only)
 - `client`: Which torrent client configuration to use for this container (required for qBittorrent, rTorrent, and Deluge containers)
 - `watchDir`: Directory to save .torrent files to (required for watchDir containers)
 - `startPaused`: Add torrents in a stopped/paused state (optional, works with all clients)
-
-Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent, rTorrent, and Deluge containers (except `tags` which is qBittorrent only). They have no effect when using watchdir mode, but setting them won't cause any issues.
+- `addPaused`: Alias for startPaused for backward compatibility
 
 You must specify either `client` for qBittorrent/rTorrent/Deluge or `watchDir` for watch directory mode. The two modes cannot be used together in the same container.
 
@@ -166,12 +182,17 @@ For rTorrent and watchDir containers:
 
 - No space management is performed at this time
 - Your torrent client will need to handle space management
+- Consider adding as paused
 
 ## Usage
 
 ```bash
 # Initialize new config
 ptparchiver init
+
+# Run as a service
+ptparchiver run              # Run continuously using interval from config (default: 6 hours)
+ptparchiver run --interval 30  # Override config and fetch every 30 minutes
 
 # Fetch torrents for all containers
 ptparchiver fetch
@@ -187,10 +208,6 @@ ptparchiver --debug fetch
 
 # Show help
 ptparchiver help
-
-# Run as a service
-ptparchiver run              # Run continuously using interval from config (default: 6 hours)
-ptparchiver run --interval 30  # Override config and fetch every 30 minutes
 ```
 
 ### Running as a Service
@@ -211,5 +228,5 @@ services:
     volumes:
       - ./config:/config
     restart: unless-stopped
-    command: run # Runs as a service using interval from config
+    command: run # Runs as a service using interval from config or by setting --interval <minutes>
 ```

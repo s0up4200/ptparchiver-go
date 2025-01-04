@@ -229,6 +229,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 				BasicPass: "", // Optional HTTP basic auth password
 			},
 		},
+		DelugeClients: map[string]config.DelugeConfig{
+			"deluge-local": {
+				Host:      "localhost",
+				Port:      58846,
+				Username:  "admin",
+				Password:  "adminadmin",
+				BasicUser: "", // Optional HTTP basic auth username
+				BasicPass: "", // Optional HTTP basic auth password
+			},
+		},
 		Containers: map[string]config.Container{
 			"qbit-container": {
 				Size:       "5T",
@@ -242,6 +252,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 				MaxStalled: 5,
 				Category:   "ptp-archive",
 				Client:     "rtorrent-local",
+			},
+			"deluge-container": {
+				Size:        "5T",
+				Category:    "ptp-archive",
+				Client:      "deluge-local",
+				StartPaused: false,
 			},
 			"watch-container": {
 				Size:     "5T",
@@ -260,7 +276,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	configContent := `# PTP Archiver Configuration
 #
 # Fill in your PTP API credentials and configure your torrent clients.
-# You can use qBittorrent, rTorrent, or a watch directory for your containers.
+# You can use qBittorrent, rTorrent, Deluge, or a watch directory for your containers.
 #
 # For qBittorrent:
 # - URL format: http(s)://hostname:port
@@ -268,6 +284,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 #
 # For rTorrent/ruTorrent:
 # - URL format: http(s)://hostname/rutorrent/plugins/httprpc/action.php
+# - Optional HTTP basic auth credentials
+#
+# For Deluge:
+# - Host: hostname or IP address of the Deluge daemon
+# - Port: Deluge daemon port (default: 58846)
+# - Username and Password for the Deluge daemon
 # - Optional HTTP basic auth credentials
 #
 # For watch directories:

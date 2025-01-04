@@ -21,18 +21,18 @@ type QBitConfig struct {
 }
 
 type RTorrConfig struct {
-	URL       string `yaml:"url"`                 // SCGI or HTTP(S) URL to rTorrent's XMLRPC endpoint
-	BasicUser string `yaml:"basicUser,omitempty"` // Optional HTTP basic auth username
-	BasicPass string `yaml:"basicPass,omitempty"` // Optional HTTP basic auth password
+	URL       string `yaml:"url"` // SCGI or HTTP(S) URL to rTorrent's XMLRPC endpoint
+	BasicUser string `yaml:"basicUser,omitempty"`
+	BasicPass string `yaml:"basicPass,omitempty"`
 }
 
 type DelugeConfig struct {
-	URL      string `yaml:"url"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	// Optional HTTP basic auth credentials
-	BasicUser string `yaml:"basicUser,omitempty"`
-	BasicPass string `yaml:"basicPass,omitempty"`
+	Host      string `yaml:"host"`
+	Port      int    `yaml:"port"`
+	Username  string `yaml:"username"`
+	Password  string `yaml:"password"`
+	BasicUser string `yaml:"basicUser"`
+	BasicPass string `yaml:"basicPass"`
 }
 
 type Container struct {
