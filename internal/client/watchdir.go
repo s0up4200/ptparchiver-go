@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"github.com/rs/zerolog/log"
 )
@@ -41,16 +40,8 @@ func (c *WatchDirClient) AddTorrent(torrentData []byte, name string, opts map[st
 	return nil
 }
 
-// GetFreeSpace returns available disk space in bytes for the watch directory
 func (c *WatchDirClient) GetFreeSpace() (uint64, error) {
-	var stat syscall.Statfs_t
-	err := syscall.Statfs(c.watchDir, &stat)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get filesystem stats: %w", err)
-	}
-
-	// Available blocks * size per block
-	return stat.Bavail * uint64(stat.Bsize), nil
+	return 0, nil
 }
 
 // CountStalledTorrents always returns 0 since watch directory can't track torrent status
