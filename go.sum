@@ -1,5 +1,7 @@
 github.com/Masterminds/semver v1.5.0 h1:H65muMkzWKEuNDnfl9d70GUjFniHKHRbFPGBuZ3QEww=
 github.com/Masterminds/semver v1.5.0/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
+github.com/autobrr/go-deluge v1.2.0 h1:psqHrH3nhriRAuxEiN8HpjH/2IW4DsNUxVavoqfi2xI=
+github.com/autobrr/go-deluge v1.2.0/go.mod h1:ndiXT1eHWv/ATNk9TpE8GHIs8OSSUnsImt4Syk+y5LM=
 github.com/autobrr/go-qbittorrent v1.11.0 h1:Xmt28ECvZYDiamabEUtDZvJxiO/NaoGjJF4mHESDXq4=
 github.com/autobrr/go-qbittorrent v1.11.0/go.mod h1:sIwIdqDcFbN67tSC5p5Lp27M8/BQFoSoW5XqXyVdHF0=
 github.com/autobrr/go-rtorrent v1.11.0 h1:T1NRPgFLooFFMX0kfvewftLk4hFQUsMlDNB8WMynBSw=
@@ -12,6 +14,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
+github.com/gdm85/go-rencode v0.1.8 h1:7+qxwoQWU1b1nMGcESOyoUR5dzPtRA6yLQpKn7uXmnI=
+github.com/gdm85/go-rencode v0.1.8/go.mod h1:0dr3BuaKzeseY1of6o1KRTGB/Oo7eio+YEyz8KDp5+s=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=

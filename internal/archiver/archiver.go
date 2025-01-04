@@ -115,6 +115,31 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 		clients[name] = rt
 	}
 
+	// Initialize only the Deluge clients that are used
+	for name, delugeConfig := range cfg.DelugeClients {
+		if _, isActive := activeClients[name]; !isActive {
+			logger.Debug().
+				Str("client", name).
+				Msg("skipping unused Deluge client")
+			continue
+		}
+
+		logger.Debug().
+			Str("client", name).
+			Msg("connecting to Deluge client")
+
+		dc, err := client.NewDelugeClient(delugeConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize deluge client %s: %w", name, err)
+		}
+
+		logger.Info().
+			Str("client", name).
+			Msg("successfully connected to Deluge client")
+
+		clients[name] = dc
+	}
+
 	return &Client{
 		cfg:     cfg,
 		clients: clients,
