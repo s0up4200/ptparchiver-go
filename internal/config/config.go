@@ -27,5 +27,6 @@ type Container struct {
 	MaxStalled int      `yaml:"maxStalled"`
 	Category   string   `yaml:"category"`
 	Tags       []string `yaml:"tags,omitempty"`
-	Client     string   `yaml:"client"` // Name of the qbittorrent client to use
+	Client     string   `yaml:"client,omitempty"`   // Name of the qbittorrent client to use (optional)
+	WatchDir   string   `yaml:"watchDir,omitempty"` // Directory to save .torrent files to (optional)
 }

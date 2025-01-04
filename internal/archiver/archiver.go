@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
-	qbittorrent "github.com/autobrr/go-qbittorrent"
 	"github.com/docker/go-units"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/s0up4200/ptparchiver-go/internal/client"
 	"github.com/s0up4200/ptparchiver-go/internal/config"
 	"github.com/zeebo/bencode"
 )
@@ -23,13 +23,12 @@ func init() {
 }
 
 type Client struct {
-	cfg   *config.Config
-	qbits map[string]*qbittorrent.Client
-	log   zerolog.Logger
+	cfg     *config.Config
+	clients map[string]client.TorrentClient
+	log     zerolog.Logger
 }
 
 // make sure we're aware of any changes made to the python version
-// TODO: remove this if we don't need it
 const serverVersion = "0.10.0"
 
 type torrentInfo struct {
@@ -42,19 +41,21 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 	logger := log.With().Logger()
 	logger.Info().
 		Str("buildVersion", ver).
-		//Str("buildCommit", commit).
-		//Str("buildDate", date).
 		Str("serverVersion", serverVersion).
 		Msg("initializing PTP archiver")
 
+	// Initialize clients map
+	clients := make(map[string]client.TorrentClient)
+
+	// Find which qBittorrent clients are needed
 	activeClients := make(map[string]struct{})
 	for _, container := range cfg.Containers {
-		activeClients[container.Client] = struct{}{}
+		if container.Client != "" {
+			activeClients[container.Client] = struct{}{}
+		}
 	}
 
-	qbits := make(map[string]*qbittorrent.Client)
-
-	// only initialize clients that are used by containers
+	// Initialize only the qBittorrent clients that are used
 	for name, qbitConfig := range cfg.QBitClients {
 		if _, isActive := activeClients[name]; !isActive {
 			logger.Debug().
@@ -67,29 +68,28 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 			Str("client", name).
 			Msg("connecting to qBittorrent client")
 
-		qbConfig := qbittorrent.Config{
-			Host:      qbitConfig.URL,
-			Username:  qbitConfig.Username,
-			Password:  qbitConfig.Password,
-			BasicUser: qbitConfig.BasicUser,
-			BasicPass: qbitConfig.BasicPass,
+		qb, err := client.NewQBitClient(
+			qbitConfig.URL,
+			qbitConfig.Username,
+			qbitConfig.Password,
+			qbitConfig.BasicUser,
+			qbitConfig.BasicPass,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize qbittorrent client %s: %w", name, err)
 		}
 
-		qb := qbittorrent.NewClient(qbConfig)
-		if err := qb.Login(); err != nil {
-			return nil, fmt.Errorf("failed to login to qbittorrent client %s: %w", name, err)
-		}
 		logger.Info().
 			Str("client", name).
 			Msg("successfully connected to qBittorrent client")
 
-		qbits[name] = qb
+		clients[name] = qb
 	}
 
 	return &Client{
-		cfg:   cfg,
-		qbits: qbits,
-		log:   logger,
+		cfg:     cfg,
+		clients: clients,
+		log:     logger,
 	}, nil
 }
 
@@ -100,6 +100,7 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 	fetchURL := fmt.Sprintf("%s/%s", c.cfg.BaseURL, "archive.php")
 	req, err := http.NewRequest("GET", fetchURL, nil)
 	if err != nil {
+		c.log.Error().Err(err).Str("url", fetchURL).Msg("failed to create fetch request")
 		return nil, fmt.Errorf("failed to create fetch request: %w", err)
 	}
 
@@ -115,20 +116,22 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 
 	resp, err := client.Do(req)
 	if err != nil {
+		c.log.Error().Err(err).Str("url", fetchURL).Msg("failed to fetch from PTP")
 		return nil, fmt.Errorf("failed to fetch from PTP: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var fetchResp struct {
-		Status        string `json:"Status"`
-		Error         string `json:"Error"`
-		Message       string `json:"Message"`
-		ContainerID   string `json:"ContainerID"`
-		ScriptVersion string `json:"ScriptVersion"`
-		TorrentID     string `json:"TorrentID"`
+		Status        string      `json:"Status"`
+		Error         string      `json:"Error"`
+		Message       string      `json:"Message"`
+		ContainerID   interface{} `json:"ContainerID"`
+		ScriptVersion string      `json:"ScriptVersion"`
+		TorrentID     string      `json:"TorrentID"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&fetchResp); err != nil {
+		c.log.Error().Err(err).Msg("failed to decode fetch response")
 		return nil, fmt.Errorf("failed to decode fetch response: %w", err)
 	}
 
@@ -164,12 +167,14 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 		} else if fetchResp.Message != "" {
 			errorMsg = fetchResp.Message
 		}
+		c.log.Error().Str("error", errorMsg).Msg("PTP API returned error")
 		return nil, fmt.Errorf("PTP API returned error: %s", errorMsg)
 	}
 
 	downloadURL := fmt.Sprintf("%s/%s", c.cfg.BaseURL, "torrents.php")
 	req, err = http.NewRequest("GET", downloadURL, nil)
 	if err != nil {
+		c.log.Error().Err(err).Str("url", downloadURL).Msg("failed to create download request")
 		return nil, fmt.Errorf("failed to create download request: %w", err)
 	}
 
@@ -183,77 +188,80 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 
 	resp, err = client.Do(req)
 	if err != nil {
+		c.log.Error().Err(err).Str("url", downloadURL).Str("torrentID", fetchResp.TorrentID).Msg("failed to download torrent")
 		return nil, fmt.Errorf("failed to download torrent: %w", err)
 	}
 	defer resp.Body.Close()
 
 	torrentData, err := io.ReadAll(resp.Body)
 	if err != nil {
+		c.log.Error().Err(err).Str("torrentID", fetchResp.TorrentID).Msg("failed to read torrent data")
 		return nil, fmt.Errorf("failed to read torrent data: %w", err)
 	}
 
 	c.log.Info().
 		Str("status", fetchResp.Status).
-		Str("containerID", fetchResp.ContainerID).
+		Interface("containerID", fetchResp.ContainerID).
 		Str("torrentID", fetchResp.TorrentID).
 		Msg("received fetch response from PTP")
 
 	return torrentData, nil
 }
 
-// countStalledTorrents returns the number of stalled downloads (not uploads) in the given category.
-// This is used to enforce the maxStalled limit before fetching new torrents from PTP.
-// A torrent is considered stalled when its download has stopped due to no available peers.
-func (c *Client) countStalledTorrents(qb *qbittorrent.Client, category string) (int, error) {
-	torrents, err := qb.GetTorrents(qbittorrent.TorrentFilterOptions{
-		Category: category,
-	})
-	if err != nil {
-		return 0, fmt.Errorf("failed to get torrents: %w", err)
-	}
-
-	stalledCount := 0
-	for _, t := range torrents {
-		if t.State == qbittorrent.TorrentStateStalledDl {
-			stalledCount++
-		}
-	}
-
-	return stalledCount, nil
-}
-
 func (c *Client) FetchForContainer(name string) error {
 	container, ok := c.cfg.Containers[name]
 	if !ok {
+		c.log.Error().Str("container", name).Msg("container not found")
 		return fmt.Errorf("container %s not found", name)
 	}
 
-	qb, ok := c.qbits[container.Client]
-	if !ok {
-		return fmt.Errorf("qBittorrent client %s not found", container.Client)
+	// Get or create appropriate client
+	var torrentClient client.TorrentClient
+	var err error
+
+	if container.WatchDir != "" {
+		// Use watch directory client
+		torrentClient, err = client.NewWatchDirClient(container.WatchDir)
+		if err != nil {
+			c.log.Error().Err(err).Str("watchDir", container.WatchDir).Msg("failed to create watch directory client")
+			return fmt.Errorf("failed to create watch directory client: %w", err)
+		}
+	} else if container.Client != "" {
+		// Use qBittorrent client
+		torrentClient, ok = c.clients[container.Client]
+		if !ok {
+			c.log.Error().Str("client", container.Client).Msg("qBittorrent client not found")
+			return fmt.Errorf("qBittorrent client %s not found", container.Client)
+		}
+	} else {
+		c.log.Error().Str("container", name).Msg("container must specify either watchDir or client")
+		return fmt.Errorf("container %s must specify either watchDir or client", name)
 	}
 
-	// First check stalled downloads count in category
-	stalledCount, err := c.countStalledTorrents(qb, container.Category)
-	if err != nil {
-		return err
-	}
+	// Only check stalled downloads for qBittorrent clients
+	if container.Client != "" {
+		// Check stalled downloads count
+		stalledCount, err := torrentClient.CountStalledTorrents(container.Category)
+		if err != nil {
+			return err
+		}
 
-	c.log.Debug().
-		Str("container", name).
-		Str("category", container.Category).
-		Int("stalledCount", stalledCount).
-		Int("maxStalled", container.MaxStalled).
-		Msg("checking stalled downloads")
-
-	if stalledCount >= container.MaxStalled {
-		c.log.Info().
+		c.log.Debug().
 			Str("container", name).
 			Str("category", container.Category).
 			Int("stalledCount", stalledCount).
 			Int("maxStalled", container.MaxStalled).
-			Msg("skipping fetch due to too many stalled downloads")
-		return nil
+			Msg("checking stalled downloads")
+
+		if stalledCount >= container.MaxStalled {
+			c.log.Info().
+				Str("container", name).
+				Str("category", container.Category).
+				Int("stalledCount", stalledCount).
+				Int("maxStalled", container.MaxStalled).
+				Msg("skipping fetch due to too many stalled downloads")
+			return nil
+		}
 	}
 
 	c.log.Info().
@@ -298,7 +306,7 @@ func (c *Client) FetchForContainer(name string) error {
 	}
 
 	// Check available disk space
-	freeSpace, err := qb.GetFreeSpaceOnDisk()
+	freeSpace, err := torrentClient.GetFreeSpace()
 	if err != nil {
 		c.log.Warn().
 			Err(err).
@@ -331,26 +339,23 @@ func (c *Client) FetchForContainer(name string) error {
 		"category": container.Category,
 	}
 	if len(container.Tags) > 0 {
-		opts["tags"] = joinTags(container.Tags)
+		opts["tags"] = strings.Join(container.Tags, ",")
 	}
 
-	err = qb.AddTorrentFromMemory(torrent, opts)
+	err = torrentClient.AddTorrent(torrent, t.Info.Name, opts)
 	if err != nil {
 		c.log.Error().
 			Err(err).
 			Str("container", name).
-			Str("client", container.Client).
-			Msg("failed to add torrent to qBittorrent")
-		return fmt.Errorf("failed to add torrent to qbittorrent: %w", err)
+			Msg("failed to add torrent")
+		return fmt.Errorf("failed to add torrent: %w", err)
 	}
 
 	c.log.Info().
 		Str("container", name).
-		Str("client", container.Client).
-		Str("category", container.Category).
 		Str("torrent", t.Info.Name).
 		Str("size", units.HumanSize(float64(totalSize))).
-		Msg("successfully added torrent to qBittorrent")
+		Msg("successfully added torrent")
 
 	return nil
 }
@@ -397,15 +402,4 @@ func (c *Client) FetchAll() error {
 
 	c.log.Info().Msg("successfully completed fetch for all containers")
 	return nil
-}
-
-func joinTags(tags []string) string {
-	result := ""
-	for i, tag := range tags {
-		if i > 0 {
-			result += ","
-		}
-		result += tag
-	}
-	return result
 }

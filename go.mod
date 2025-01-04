@@ -3,6 +3,7 @@ module github.com/s0up4200/ptparchiver-go
 go 1.23.4
 
 require (
+	github.com/Masterminds/semver v1.5.0
 	github.com/autobrr/go-qbittorrent v1.11.0
 	github.com/docker/go-units v0.5.0
 	github.com/rs/zerolog v1.33.0
@@ -12,7 +13,6 @@ require (
 )
 
 require (
-	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
