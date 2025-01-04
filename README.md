@@ -1,6 +1,6 @@
 # PTP Archiver Go
 
-A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. Supports qBittorrent, rTorrent, and watchDir.
+A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. Supports qBittorrent, rTorrent, Deluge, and watchDir.
 
 ## Table of Contents
 
@@ -98,6 +98,15 @@ rtorrent:
   local_server:
     url: https://127.0.0.1/rutorrent/plugins/httprpc/action.php # Local ruTorrent XMLRPC endpoint
 
+# Define Deluge clients
+deluge:
+  seedbox3:
+    url: http://localhost:8112 # Deluge WebUI URL
+    username: admin # Deluge WebUI username
+    password: deluge # Deluge WebUI password
+    basicUser: "" # Optional HTTP basic auth username
+    basicPass: "" # Optional HTTP basic auth password
+
 # Define archive containers
 containers:
   qbit-container:
@@ -116,6 +125,13 @@ containers:
     client: seedbox2 # Which client to use
     startPaused: true # Add torrents in a stopped state (optional)
 
+  deluge-container:
+    size: 5T # Total storage allocation
+    maxStalled: 3 # Stop fetching new torrents when this many downloads are stalled
+    category: ptp-archive # Torrent label
+    client: seedbox3 # Which client to use
+    startPaused: true # Add torrents in a stopped state (optional)
+
   watch-container:
     size: 5T # Total storage allocation
     watchDir: /path/to/watch/directory # Directory to save .torrent files to
@@ -127,20 +143,20 @@ interval: 360 # Minutes between fetch attempts when running as a service (defaul
 ### Container Settings Explained
 
 - `size`: Total storage allocation for this container. This is used by PTP to track total allocation, not for local space management.
-- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting works with qBittorrent and rTorrent containers but has no effect on watchDir containers.
-- `category`: Category/label to assign to downloaded torrents (qBittorrent and rTorrent only)
+- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting works with qBittorrent, rTorrent, and Deluge containers but has no effect on watchDir containers.
+- `category`: Category/label to assign to downloaded torrents (works with all clients)
 - `tags`: Optional tags to assign to downloaded torrents (qBittorrent only)
-- `client`: Which torrent client configuration to use for this container (required for qBittorrent and rTorrent containers)
+- `client`: Which torrent client configuration to use for this container (required for qBittorrent, rTorrent, and Deluge containers)
 - `watchDir`: Directory to save .torrent files to (required for watchDir containers)
-- `startPaused`: Add torrents in a stopped/paused state (optional, works with qBittorrent and rTorrent)
+- `startPaused`: Add torrents in a stopped/paused state (optional, works with all clients)
 
-Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent and rTorrent containers (except `tags` which is qBittorrent only). They have no effect when using watchdir mode, but setting them won't cause any issues.
+Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent, rTorrent, and Deluge containers (except `tags` which is qBittorrent only). They have no effect when using watchdir mode, but setting them won't cause any issues.
 
-You must specify either `client` for qBittorrent/rTorrent or `watchDir` for watch directory mode. The two modes cannot be used together in the same container.
+You must specify either `client` for qBittorrent/rTorrent/Deluge or `watchDir` for watch directory mode. The two modes cannot be used together in the same container.
 
 ### Space Management
 
-For qBittorrent containers:
+For qBittorrent and Deluge containers:
 
 - Checks available space in the client's download directory
 - Requires enough free space for the torrent size plus a 10% buffer

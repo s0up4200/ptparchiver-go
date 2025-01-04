@@ -4,6 +4,7 @@ go 1.23.4
 
 require (
 	github.com/Masterminds/semver v1.5.0
+	github.com/autobrr/go-deluge v1.2.0
 	github.com/autobrr/go-qbittorrent v1.11.0
 	github.com/autobrr/go-rtorrent v1.11.0
 	github.com/docker/go-units v0.5.0
@@ -15,6 +16,7 @@ require (
 
 require (
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
+	github.com/gdm85/go-rencode v0.1.8 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

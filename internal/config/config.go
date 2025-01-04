@@ -1,14 +1,15 @@
 package config
 
 type Config struct {
-	ApiKey       string                 `yaml:"apiKey"`
-	ApiUser      string                 `yaml:"apiUser"`
-	BaseURL      string                 `yaml:"baseUrl" default:"https://passthepopcorn.me"`
-	QBitClients  map[string]QBitConfig  `yaml:"qbittorrent"`
-	RTorrClients map[string]RTorrConfig `yaml:"rtorrent"`
-	Containers   map[string]Container   `yaml:"containers"`
-	FetchSleep   int                    `yaml:"fetchSleep" default:"5"`
-	Interval     int                    `yaml:"interval" default:"360"`
+	ApiKey        string                  `yaml:"apiKey"`
+	ApiUser       string                  `yaml:"apiUser"`
+	BaseURL       string                  `yaml:"baseUrl" default:"https://passthepopcorn.me"`
+	QBitClients   map[string]QBitConfig   `yaml:"qbittorrent"`
+	RTorrClients  map[string]RTorrConfig  `yaml:"rtorrent"`
+	DelugeClients map[string]DelugeConfig `yaml:"deluge"`
+	Containers    map[string]Container    `yaml:"containers"`
+	FetchSleep    int                     `yaml:"fetchSleep" default:"5"`
+	Interval      int                     `yaml:"interval" default:"360"`
 }
 
 type QBitConfig struct {
@@ -23,6 +24,15 @@ type RTorrConfig struct {
 	URL       string `yaml:"url"`                 // SCGI or HTTP(S) URL to rTorrent's XMLRPC endpoint
 	BasicUser string `yaml:"basicUser,omitempty"` // Optional HTTP basic auth username
 	BasicPass string `yaml:"basicPass,omitempty"` // Optional HTTP basic auth password
+}
+
+type DelugeConfig struct {
+	URL      string `yaml:"url"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	// Optional HTTP basic auth credentials
+	BasicUser string `yaml:"basicUser,omitempty"`
+	BasicPass string `yaml:"basicPass,omitempty"`
 }
 
 type Container struct {
