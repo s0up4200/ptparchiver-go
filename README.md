@@ -1,9 +1,6 @@
 # PTP Archiver Go
 
-A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. This tool only works with qBittorrent.
-
-> [!WARNING]  
-> **Important Note**: This implementation follows the original Python script's version (`0.10.0`). The program will stop working if the original Python script is updated, requiring an update of this Go version to maintain compatibility. This is to ensure protocol compliance and correct functionality.
+A Go implementation of PTP's archiver client utility that allows you to allocate "containers" that PTP will provide neglected torrents to archive in. You cannot control what content is put in those containers. Supports both qBittorrent and watchDir.
 
 ## Table of Contents
 
@@ -94,14 +91,18 @@ qbittorrent:
 
 # Define archive containers
 containers:
-  main:
+  qbit-container:
     size: 5T # Total storage allocation
-    maxStalled: 5 # Stop fetching new torrents when this many downloads are stalled
+    maxStalled: 5 # Stop fetching new torrents when this many downloads are stalled (qBittorrent only)
     category: ptp-archive # qBittorrent category
-    tags: # Optional qBittorrent tags
-      - ptp
-      - archive
+    #tags: # Optional qBittorrent tags
+    #  - ptp
+    #  - archive
     client: seedbox1 # Which qBittorrent client to use
+
+  watch-container:
+    size: 5T # Total storage allocation
+    watchDir: /path/to/watch/directory # Directory to save .torrent files to
 
 fetchSleep: 5 # Seconds between API requests, do not set lower than 5
 interval: 360 # Minutes between fetch attempts when running as a service (default: 6 hours)
@@ -110,16 +111,21 @@ interval: 360 # Minutes between fetch attempts when running as a service (defaul
 ### Container Settings Explained
 
 - `size`: Total storage allocation for this container. This is used by PTP to track total allocation, not for local space management.
-- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers.
-- `category`: qBittorrent category to assign to downloaded torrents
-- `tags`: Optional tags to assign to downloaded torrents
-- `client`: Which qBittorrent client configuration to use for this container
+- `maxStalled`: When this many torrents in the container have stalled downloads (not uploads), the client will stop fetching new torrents until some complete or are removed. A download is considered stalled when it cannot progress due to no available peers. This setting only works with qBittorrent containers and has no effect on watchDir containers.
+- `category`: qBittorrent category to assign to downloaded torrents (qBittorrent only)
+- `tags`: Optional tags to assign to downloaded torrents (qBittorrent only)
+- `client`: Which qBittorrent client configuration to use for this container (required for qBittorrent)
+- `watchDir`: Directory to save .torrent files to (required for watchdir)
+
+Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent containers. They have no effect when using watchdir mode, but setting them won't cause any issues.
+
+You must specify either `client` for qBittorrent or `watchDir` for watch directory mode. The two modes cannot be used together in the same container.
 
 ### Space Management
 
 The client performs disk space checks before adding each torrent:
 
-- Checks available space in qBittorrent's download directory
+- Checks available space in qBittorrent's download directory or watch directory
 - Requires enough free space for the torrent size plus a 10% buffer
 - Skips the torrent if insufficient space is available
 

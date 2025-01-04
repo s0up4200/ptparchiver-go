@@ -214,12 +214,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 			},
 		},
 		Containers: map[string]config.Container{
-			"name-of-container": {
+			"qbit-container": {
 				Size:       "5T",
 				MaxStalled: 5,
 				Category:   "ptp-archive",
 				Tags:       []string{"ptp", "archive"},
 				Client:     "default",
+			},
+			"watch-container": {
+				Size:     "5T",
+				WatchDir: "/path/to/watch/directory",
 			},
 		},
 		FetchSleep: 5,
