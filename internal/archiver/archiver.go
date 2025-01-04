@@ -100,6 +100,7 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 	fetchURL := fmt.Sprintf("%s/%s", c.cfg.BaseURL, "archive.php")
 	req, err := http.NewRequest("GET", fetchURL, nil)
 	if err != nil {
+		c.log.Error().Err(err).Str("url", fetchURL).Msg("failed to create fetch request")
 		return nil, fmt.Errorf("failed to create fetch request: %w", err)
 	}
 
@@ -115,6 +116,7 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 
 	resp, err := client.Do(req)
 	if err != nil {
+		c.log.Error().Err(err).Str("url", fetchURL).Msg("failed to fetch from PTP")
 		return nil, fmt.Errorf("failed to fetch from PTP: %w", err)
 	}
 	defer resp.Body.Close()
@@ -129,6 +131,7 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&fetchResp); err != nil {
+		c.log.Error().Err(err).Msg("failed to decode fetch response")
 		return nil, fmt.Errorf("failed to decode fetch response: %w", err)
 	}
 
@@ -164,12 +167,14 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 		} else if fetchResp.Message != "" {
 			errorMsg = fetchResp.Message
 		}
+		c.log.Error().Str("error", errorMsg).Msg("PTP API returned error")
 		return nil, fmt.Errorf("PTP API returned error: %s", errorMsg)
 	}
 
 	downloadURL := fmt.Sprintf("%s/%s", c.cfg.BaseURL, "torrents.php")
 	req, err = http.NewRequest("GET", downloadURL, nil)
 	if err != nil {
+		c.log.Error().Err(err).Str("url", downloadURL).Msg("failed to create download request")
 		return nil, fmt.Errorf("failed to create download request: %w", err)
 	}
 
@@ -183,12 +188,14 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 
 	resp, err = client.Do(req)
 	if err != nil {
+		c.log.Error().Err(err).Str("url", downloadURL).Str("torrentID", fetchResp.TorrentID).Msg("failed to download torrent")
 		return nil, fmt.Errorf("failed to download torrent: %w", err)
 	}
 	defer resp.Body.Close()
 
 	torrentData, err := io.ReadAll(resp.Body)
 	if err != nil {
+		c.log.Error().Err(err).Str("torrentID", fetchResp.TorrentID).Msg("failed to read torrent data")
 		return nil, fmt.Errorf("failed to read torrent data: %w", err)
 	}
 
@@ -204,6 +211,7 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 func (c *Client) FetchForContainer(name string) error {
 	container, ok := c.cfg.Containers[name]
 	if !ok {
+		c.log.Error().Str("container", name).Msg("container not found")
 		return fmt.Errorf("container %s not found", name)
 	}
 
@@ -215,15 +223,18 @@ func (c *Client) FetchForContainer(name string) error {
 		// Use watch directory client
 		torrentClient, err = client.NewWatchDirClient(container.WatchDir)
 		if err != nil {
+			c.log.Error().Err(err).Str("watchDir", container.WatchDir).Msg("failed to create watch directory client")
 			return fmt.Errorf("failed to create watch directory client: %w", err)
 		}
 	} else if container.Client != "" {
 		// Use qBittorrent client
 		torrentClient, ok = c.clients[container.Client]
 		if !ok {
+			c.log.Error().Str("client", container.Client).Msg("qBittorrent client not found")
 			return fmt.Errorf("qBittorrent client %s not found", container.Client)
 		}
 	} else {
+		c.log.Error().Str("container", name).Msg("container must specify either watchDir or client")
 		return fmt.Errorf("container %s must specify either watchDir or client", name)
 	}
 

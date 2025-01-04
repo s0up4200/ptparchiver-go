@@ -17,9 +17,11 @@ type WatchDirClient struct {
 func NewWatchDirClient(watchDir string) (*WatchDirClient, error) {
 	// Create watch directory if it doesn't exist
 	if err := os.MkdirAll(watchDir, 0755); err != nil {
+		log.Error().Err(err).Str("watchDir", watchDir).Msg("failed to create watch directory")
 		return nil, fmt.Errorf("failed to create watch directory: %w", err)
 	}
 
+	log.Debug().Str("watchDir", watchDir).Msg("created watch directory client")
 	return &WatchDirClient{
 		watchDir: watchDir,
 	}, nil
@@ -30,6 +32,7 @@ func (c *WatchDirClient) AddTorrent(torrentData []byte, name string, opts map[st
 	torrentPath := filepath.Join(c.watchDir, fmt.Sprintf("%s.torrent", name))
 
 	if err := os.WriteFile(torrentPath, torrentData, 0644); err != nil {
+		log.Error().Err(err).Str("path", torrentPath).Msg("failed to write torrent file")
 		return fmt.Errorf("failed to write torrent file: %w", err)
 	}
 

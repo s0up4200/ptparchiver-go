@@ -130,6 +130,7 @@ func findConfig() (string, error) {
 	// Check ~/.config/ptparchiver-go/
 	home, err := os.UserHomeDir()
 	if err != nil {
+		log.Error().Err(err).Msg("could not determine home directory")
 		return "", fmt.Errorf("could not determine home directory: %w", err)
 	}
 
@@ -139,6 +140,7 @@ func findConfig() (string, error) {
 		return configPath, nil
 	}
 
+	log.Error().Str("config_dir", configDir).Msg("no config file found")
 	return "", fmt.Errorf("no config file found in current directory or %s", configDir)
 }
 
@@ -147,11 +149,13 @@ func loadConfig(path string) (*config.Config, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
+		log.Error().Err(err).Str("path", path).Msg("failed to read config file")
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	var cfg config.Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		log.Error().Err(err).Str("path", path).Msg("failed to parse config file")
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
@@ -171,6 +175,7 @@ func runFetch(cmd *cobra.Command, args []string) error {
 
 	client, err := archiver.NewClient(cfg, version, commit, date)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to create client")
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
@@ -187,16 +192,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 		// Default to ~/.config/ptparchiver-go/config.yaml
 		home, err := os.UserHomeDir()
 		if err != nil {
+			log.Error().Err(err).Msg("could not determine home directory")
 			return fmt.Errorf("could not determine home directory: %w", err)
 		}
 		configDir := filepath.Join(home, ".config", "ptparchiver-go")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
+			log.Error().Err(err).Str("dir", configDir).Msg("could not create config directory")
 			return fmt.Errorf("could not create config directory: %w", err)
 		}
 		configPath = filepath.Join(configDir, "config.yaml")
 	}
 
 	if _, err := os.Stat(configPath); err == nil {
+		log.Error().Str("path", configPath).Msg("config file already exists")
 		return fmt.Errorf("config file already exists at %s", configPath)
 	}
 
