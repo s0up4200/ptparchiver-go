@@ -10,6 +10,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
+      - windows
       - darwin
       - freebsd
     goarch:
@@ -19,6 +20,10 @@ builds:
     goarm:
       - 6
     ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
       - goos: darwin
         goarch: arm
       - goos: freebsd
@@ -29,7 +34,10 @@ builds:
     binary: ptparchiver
 
 archives:
-  - name_template: >-
+  - format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
       {{- .Os }}_
