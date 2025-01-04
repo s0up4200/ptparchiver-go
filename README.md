@@ -6,6 +6,7 @@ A Go implementation of PTP's archiver client utility that allows you to allocate
 
 - [Installation](#installation)
   - [Downloading the binary](#downloading-the-binary)
+  - [Docker Compose](#docker-compose)
   - [Building from Source](#building-from-source)
   - [Installing using Go](#installing-using-go)
 - [Quick Start](#quick-start)
@@ -19,13 +20,15 @@ A Go implementation of PTP's archiver client utility that allows you to allocate
 
 ### Downloading the binary
 
-1. Download the binary for your operating system:
+1. Download the binary for your operating system from the [releases page](https://github.com/s0up4200/ptparchiver-go/releases/latest).
+
+   If you run linux x86_64, you can use the following command to download the latest release:
 
    ```bash
    wget $(curl -s https://api.github.com/repos/s0up4200/ptparchiver-go/releases/latest | grep download | grep linux_x86_64 | cut -d\" -f4)
    ```
 
-2. Extract the downloaded archive to `/usr/local/bin`:
+2. Extract the binary to `/usr/local/bin`:
 
    ```bash
    sudo tar -C /usr/local/bin -xzf ptparchiver*.tar.gz
@@ -36,7 +39,17 @@ A Go implementation of PTP's archiver client utility that allows you to allocate
    ptparchiver --help
    ```
 
+### Docker Compose
+
+See [docker-compose.yml](docker-compose.yml) for an example.
+
+```bash
+docker compose up -d
+```
+
 ### Building from Source
+
+Requires Go to be installed. Get it from [here](https://go.dev/dl/).
 
 ```bash
 git clone https://github.com/s0up4200/ptparchiver-go.git
@@ -62,14 +75,18 @@ ptparchiver init
 
 2. Edit the generated config file (located in either current directory or `~/.config/ptparchiver-go/config.yaml`)
 
+```bash
+nano ~/.config/ptparchiver-go/config.yaml
+```
+
 3. Start archiving:
 
 ```bash
-# Fetch torrents for all containers
+# Fetch torrents for all active containers
 ptparchiver fetch
 
 # Fetch torrents for a specific container
-ptparchiver fetch hetzner
+ptparchiver fetch container1
 ```
 
 ## Configuration Example
@@ -136,7 +153,7 @@ containers:
     size: 5T # Total storage allocation
     watchDir: /path/to/watch/directory # Directory to save .torrent files to
 
-fetchSleep: 5 # Seconds between API requests, do not set lower than 5
+fetchSleep: 5 # Seconds between API requests, do not set lower than 5 unless you want to get banned
 interval: 360 # Minutes between fetch attempts when running as a service (default: 6 hours)
 ```
 
@@ -150,8 +167,6 @@ interval: 360 # Minutes between fetch attempts when running as a service (defaul
 - `watchDir`: Directory to save .torrent files to (required for watchDir containers)
 - `startPaused`: Add torrents in a stopped/paused state (optional, works with all clients)
 - `addPaused`: Alias for startPaused for backward compatibility
-
-Note: The `category`, `tags`, and `maxStalled` settings are only used with qBittorrent, rTorrent, and Deluge containers (except `tags` which is qBittorrent only). They have no effect when using watchdir mode, but setting them won't cause any issues.
 
 You must specify either `client` for qBittorrent/rTorrent/Deluge or `watchDir` for watch directory mode. The two modes cannot be used together in the same container.
 
@@ -167,12 +182,17 @@ For rTorrent and watchDir containers:
 
 - No space management is performed at this time
 - Your torrent client will need to handle space management
+- Consider adding as paused
 
 ## Usage
 
 ```bash
 # Initialize new config
 ptparchiver init
+
+# Run as a service
+ptparchiver run              # Run continuously using interval from config (default: 6 hours)
+ptparchiver run --interval 30  # Override config and fetch every 30 minutes
 
 # Fetch torrents for all containers
 ptparchiver fetch
@@ -188,10 +208,6 @@ ptparchiver --debug fetch
 
 # Show help
 ptparchiver help
-
-# Run as a service
-ptparchiver run              # Run continuously using interval from config (default: 6 hours)
-ptparchiver run --interval 30  # Override config and fetch every 30 minutes
 ```
 
 ### Running as a Service
@@ -212,5 +228,5 @@ services:
     volumes:
       - ./config:/config
     restart: unless-stopped
-    command: run # Runs as a service using interval from config
+    command: run # Runs as a service using interval from config or by setting --interval <minutes>
 ```
