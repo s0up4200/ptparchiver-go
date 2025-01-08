@@ -133,16 +133,16 @@ func CheckForUpdates(org, repo string) error {
 
 	if Version == "dev" {
 		log.Info().
-			Str("latestRelease", latestVersion).
+			Str("latestRelease", "v"+latestVersion).
 			Time("publishedAt", release.PublishedAt).
 			Msg("running development version")
 		return nil
 	}
 
-	if Version != latestVersion {
+	if Version != "v"+latestVersion {
 		log.Info().
 			Str("current", Version).
-			Str("latest", latestVersion).
+			Str("latest", "v"+latestVersion).
 			Time("publishedAt", release.PublishedAt).
 			Str("updateUrl", release.HTMLURL).
 			Msg("update available")
