@@ -8,7 +8,7 @@ builds:
   - id: ptparchiver
     env:
       - CGO_ENABLED=0
-      - BUILDER=goreleaser
+      - BUILDER
     goos:
       - linux
       - windows
