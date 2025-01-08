@@ -54,4 +54,4 @@ VOLUME /config
 
 COPY --link --from=app-builder /out/bin/ptparchiver /usr/local/bin/
 
-ENTRYPOINT ["/usr/local/bin/ptparchiver"]
+ENTRYPOINT ["/usr/local/bin/ptparchiver", "--config", "/config/config.yaml"]
