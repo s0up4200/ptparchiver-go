@@ -13,20 +13,28 @@ RUN go mod download
 COPY . ./
 
 ARG VERSION=dev
-ARG REVISION=dev
+ARG REVISION
 ARG BUILDTIME
+ARG BUILDER
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-RUN --network=none --mount=target=. \
+RUN REVISION=$(git rev-parse --short HEAD 2>/dev/null || echo "none") && \
+    BUILDTIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ') && \
+    BUILDER=${BUILDER:-docker} && \
     export GOOS=$TARGETOS; \
     export GOARCH=$TARGETARCH; \
     [[ "$GOARCH" == "amd64" ]] && export GOAMD64=$TARGETVARIANT; \
     [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v6" ]] && export GOARM=6; \
     [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v7" ]] && export GOARM=7; \
     echo $GOARCH $GOOS $GOARM$GOAMD64; \
-    go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${REVISION} -X main.date=${BUILDTIME}" -o /out/bin/ptparchiver cmd/ptparchiver/main.go
+    go build -ldflags "-s -w \
+    -X github.com/s0up4200/ptparchiver-go/pkg/version.Version=${VERSION} \
+    -X github.com/s0up4200/ptparchiver-go/pkg/version.Commit=${REVISION} \
+    -X github.com/s0up4200/ptparchiver-go/pkg/version.Date=${BUILDTIME} \
+    -X github.com/s0up4200/ptparchiver-go/pkg/version.BuiltBy=${BUILDER}" \
+    -o /out/bin/ptparchiver cmd/ptparchiver/main.go
 
 # build runner
 FROM alpine:latest AS runner
@@ -46,4 +54,4 @@ VOLUME /config
 
 COPY --link --from=app-builder /out/bin/ptparchiver /usr/local/bin/
 
-ENTRYPOINT ["/usr/local/bin/ptparchiver", "--config", "/config/config.yaml"]
+ENTRYPOINT ["/usr/local/bin/ptparchiver"]

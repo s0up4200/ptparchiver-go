@@ -9,14 +9,32 @@ import (
 
 	runtime "runtime/debug"
 
+	"os/exec"
+
 	"github.com/rs/zerolog/log"
 )
 
 var (
-	Version = getVersion()
-	Commit  = getCommit()
-	Date    = getBuildDate()
+	Version string
+	Commit  string
+	Date    string
+	BuiltBy string
 )
+
+func init() {
+	if Version == "" {
+		Version = getVersion()
+	}
+	if Commit == "" {
+		Commit = getCommit()
+	}
+	if Date == "" {
+		Date = getBuildDate()
+	}
+	if BuiltBy == "" {
+		BuiltBy = getBuiltBy()
+	}
+}
 
 func getVersion() string {
 	if info, ok := runtime.ReadBuildInfo(); ok && info.Main.Version != "(devel)" {
@@ -50,6 +68,23 @@ func getBuildDate() string {
 	return "unknown"
 }
 
+func getBuiltBy() string {
+	if info, ok := runtime.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.username" {
+				return setting.Value
+			}
+		}
+	}
+
+	output, err := exec.Command("git", "config", "--get", "user.name").Output()
+	if err == nil && len(output) > 0 {
+		return strings.TrimSpace(string(output))
+	}
+
+	return "unknown"
+}
+
 // CheckForUpdates checks GitHub for the latest release version and logs the results
 func CheckForUpdates(org, repo string) error {
 	// Show current version using structured logging
@@ -57,6 +92,7 @@ func CheckForUpdates(org, repo string) error {
 		Str("version", Version).
 		Str("commit", Commit).
 		Str("buildDate", Date).
+		Str("builtBy", BuiltBy).
 		Msg("ptparchiver version info")
 
 	// Check for latest release from GitHub API

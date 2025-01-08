@@ -8,6 +8,7 @@ builds:
   - id: ptparchiver
     env:
       - CGO_ENABLED=0
+      - BUILDER=goreleaser
     goos:
       - linux
       - windows
@@ -32,6 +33,12 @@ builds:
         goarch: arm64
     main: ./cmd/ptparchiver/main.go
     binary: ptparchiver
+    ldflags:
+      - -s -w
+      - -X github.com/s0up4200/ptparchiver-go/pkg/version.Version={{.Version}}
+      - -X github.com/s0up4200/ptparchiver-go/pkg/version.Commit={{.ShortCommit}}
+      - -X "github.com/s0up4200/ptparchiver-go/pkg/version.Date={{.CommitDate}}"
+      - -X "github.com/s0up4200/ptparchiver-go/pkg/version.BuiltBy={{.Env.BUILDER}}"
 
 archives:
   - format_overrides:

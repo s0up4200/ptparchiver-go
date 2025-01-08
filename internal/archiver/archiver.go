@@ -285,7 +285,7 @@ func (c *Client) FetchForContainer(name string) error {
 		torrentClient, ok = c.clients[container.Client]
 		if !ok {
 			c.log.Error().Str("client", container.Client).Msg("client not found")
-			return fmt.Errorf("qBittorrent client %s not found", container.Client)
+			return fmt.Errorf("client %s not found", container.Client)
 		}
 	} else {
 		c.log.Error().Str("container", name).Msg("container must specify either watchDir or client")

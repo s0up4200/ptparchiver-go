@@ -237,6 +237,5 @@ services:
     container_name: ptparchiver
     volumes:
       - ./config:/config
-    restart: unless-stopped
     command: run # Runs as a service using interval from config or by setting --interval <minutes>
 ```

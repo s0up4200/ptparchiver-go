@@ -6,5 +6,5 @@ services:
       - TZ=UTC
     volumes:
       - ./config:/config
-    restart: unless-stopped
+    restart: on-failure:1
     command: run # --interval <minutes> to override config
