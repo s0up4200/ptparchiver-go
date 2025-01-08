@@ -26,7 +26,7 @@ RUN --network=none --mount=target=. \
     [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v6" ]] && export GOARM=6; \
     [[ "$GOARCH" == "arm" ]] && [[ "$TARGETVARIANT" == "v7" ]] && export GOARM=7; \
     echo $GOARCH $GOOS $GOARM$GOAMD64; \
-    go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${REVISION} -X main.date=${BUILDTIME}" -o /out/bin/ptparchiver cmd/archiver/main.go
+    go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${REVISION} -X main.date=${BUILDTIME}" -o /out/bin/ptparchiver cmd/ptparchiver/main.go
 
 # build runner
 FROM alpine:latest AS runner
