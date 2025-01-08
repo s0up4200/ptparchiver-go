@@ -76,6 +76,7 @@ jobs:
           args: release --clean --skip=validate,publish --parallelism 5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILDER: ${{ github.actor }}@github-actions
 
       - name: Run GoReleaser build and publish tags
         if: startsWith(github.ref, 'refs/tags/')
@@ -86,6 +87,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILDER: ${{ github.actor }}@github-actions
 
       - name: Upload assets
         uses: actions/upload-artifact@v4
@@ -157,6 +159,7 @@ jobs:
             BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
             VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
             REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
+            BUILDER=${{ github.actor }}@github-actions
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
