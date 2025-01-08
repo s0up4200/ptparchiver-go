@@ -30,7 +30,7 @@ builds:
         goarch: arm
       - goos: freebsd
         goarch: arm64
-    main: ./cmd/archiver/main.go
+    main: ./cmd/ptparchiver/main.go
     binary: ptparchiver
 
 archives:
