@@ -1,58 +1,25 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
-	runtime "runtime/debug"
 	"time"
-
-	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/s0up4200/ptparchiver-go/internal/archiver"
 	"github.com/s0up4200/ptparchiver-go/internal/config"
+	"github.com/s0up4200/ptparchiver-go/pkg/version"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
 var (
-	version = getVersion()
-	commit  = getCommit()
-	date    = getBuildDate()
+	appVersion = version.Version
+	appCommit  = version.Commit
+	appDate    = version.Date
 )
-
-func getVersion() string {
-	if info, ok := runtime.ReadBuildInfo(); ok && info.Main.Version != "(devel)" {
-		return info.Main.Version
-	}
-	return "dev"
-}
-
-func getCommit() string {
-	if info, ok := runtime.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" {
-				return setting.Value[:7]
-			}
-		}
-	}
-	return "none"
-}
-
-func getBuildDate() string {
-	if info, ok := runtime.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.time" {
-				return setting.Value
-			}
-		}
-	}
-	return "unknown"
-}
 
 func init() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
@@ -204,7 +171,7 @@ func runFetch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := archiver.NewClient(cfg, version, commit, date)
+	client, err := archiver.NewClient(cfg, appVersion, appCommit, appDate)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create client")
 		return fmt.Errorf("failed to create client: %w", err)
@@ -359,7 +326,7 @@ func runService(cmd *cobra.Command, args []string) error {
 		Str("schedule", fmt.Sprintf("every %d minutes", interval)).
 		Msg("starting archiver service")
 
-	client, err := archiver.NewClient(cfg, version, commit, date)
+	client, err := archiver.NewClient(cfg, appVersion, appCommit, appDate)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
@@ -407,73 +374,5 @@ func formatDuration(d time.Duration) string {
 }
 
 func runVersion(cmd *cobra.Command, args []string) error {
-	// Show current version using structured logging
-	commitHash := "none"
-	if len(commit) >= 7 {
-		commitHash = commit[:7]
-	}
-
-	log.Info().
-		Str("version", version).
-		Str("commit", commitHash).
-		Str("buildDate", date).
-		Msg("PTP Archiver version info")
-
-	// Check for latest release from GitHub API
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/s0up4200/ptparchiver-go/releases/latest", nil)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to create request")
-		return nil
-	}
-
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "PTPArchiver/"+version)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to check for updates")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Warn().Str("status", resp.Status).Msg("GitHub API request failed")
-		return nil
-	}
-
-	var release struct {
-		TagName     string    `json:"tag_name"`
-		PublishedAt time.Time `json:"published_at"`
-		HTMLURL     string    `json:"html_url"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		log.Warn().Err(err).Msg("failed to parse GitHub response")
-		return nil
-	}
-
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-
-	if version == "dev" {
-		log.Info().
-			Str("latestRelease", latestVersion).
-			Time("publishedAt", release.PublishedAt).
-			Msg("running development version")
-		return nil
-	}
-
-	if version != latestVersion {
-		log.Info().
-			Str("current", version).
-			Str("latest", latestVersion).
-			Time("publishedAt", release.PublishedAt).
-			Str("updateUrl", release.HTMLURL).
-			Msg("update available")
-	} else {
-		log.Info().
-			Time("publishedAt", release.PublishedAt).
-			Msg("you are running the latest version")
-	}
-
-	return nil
+	return version.CheckForUpdates("s0up4200", "ptparchiver-go")
 }
