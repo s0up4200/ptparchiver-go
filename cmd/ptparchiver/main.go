@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	runtime "runtime/debug"
 	"time"
 
 	"strings"
@@ -19,10 +20,39 @@ import (
 )
 
 var (
-	version string = "dev"
-	commit  string = "none"
-	date    string = "unknown"
+	version = getVersion()
+	commit  = getCommit()
+	date    = getBuildDate()
 )
+
+func getVersion() string {
+	if info, ok := runtime.ReadBuildInfo(); ok && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
+
+func getCommit() string {
+	if info, ok := runtime.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				return setting.Value[:7]
+			}
+		}
+	}
+	return "none"
+}
+
+func getBuildDate() string {
+	if info, ok := runtime.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.time" {
+				return setting.Value
+			}
+		}
+	}
+	return "unknown"
+}
 
 func init() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
