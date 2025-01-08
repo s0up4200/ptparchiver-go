@@ -62,8 +62,18 @@ go build -o ptparchiver ./cmd/archiver
 Requires Go to be installed. Get it from [here](https://go.dev/dl/).
 
 ```bash
-go install github.com/s0up4200/ptparchiver-go@latest
+go install github.com/s0up4200/ptparchiver-go/cmd/ptparchiver@latest
 ```
+
+Make sure your Go binary path is added to your system's PATH:
+
+- For Linux/macOS, add to `~/.bashrc` or `~/.zshrc`:
+
+  ```bash
+  export PATH=$PATH:$(go env GOPATH)/bin
+  ```
+
+- For Windows, add `%USERPROFILE%\go\bin` to your system's PATH environment variable
 
 ## Quick Start
 
