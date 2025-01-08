@@ -34,6 +34,7 @@ func getVersion() string {
 
 func getCommit() string {
 	if info, ok := runtime.ReadBuildInfo(); ok {
+		log.Debug().Interface("settings", info.Settings).Msg("build info settings")
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.revision" {
 				return setting.Value[:7]
