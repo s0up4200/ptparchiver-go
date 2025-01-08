@@ -93,7 +93,7 @@ func CheckForUpdates(org, repo string) error {
 		Str("commit", Commit).
 		Str("buildDate", Date).
 		Str("builtBy", BuiltBy).
-		Msg("ptparchiver version info")
+		Msg(fmt.Sprintf("%s version info", repo))
 
 	// Check for latest release from GitHub API
 	client := &http.Client{Timeout: 10 * time.Second}
