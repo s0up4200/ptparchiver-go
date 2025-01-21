@@ -239,3 +239,7 @@ services:
       - ./config:/config
     command: run # Runs as a service using interval from config or by setting --interval <minutes>
 ```
+
+## GitHub Stats
+
+![Alt](https://repobeats.axiom.co/api/embed/edab0c31785de23be78e851eaeb95acf1f612e5b.svg "Repobeats analytics image")
