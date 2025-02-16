@@ -7,6 +7,7 @@ A Go implementation of PTP Archive Team client utility that allows you to alloca
 - [Installation](#installation)
   - [Downloading the binary](#downloading-the-binary)
   - [Docker Compose](#docker-compose)
+  - [Homebrew](#homebrew)
   - [Building from Source](#building-from-source)
   - [Installing using Go](#installing-using-go)
 - [Quick Start](#quick-start)
@@ -45,6 +46,13 @@ See [docker-compose.yml](docker-compose.yml) for an example.
 
 ```bash
 docker compose up -d
+```
+
+### Homebrew
+
+```bash
+brew tap s0up4200/ptparchiver-go
+brew install ptparchiver-go
 ```
 
 ### Building from Source
