@@ -12,13 +12,8 @@ import (
 	"github.com/s0up4200/ptparchiver-go/internal/config"
 	"github.com/s0up4200/ptparchiver-go/pkg/version"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
-)
-
-var (
-	appVersion = version.Version
-	appCommit  = version.Commit
-	appDate    = version.Date
 )
 
 func init() {
@@ -26,6 +21,8 @@ func init() {
 }
 
 func main() {
+	version.Initialize()
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -129,7 +126,7 @@ func findConfig() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Error().Err(err).Msg("could not determine home directory")
-		return "", fmt.Errorf("could not determine home directory: %w", err)
+		return "", err
 	}
 
 	configDir := filepath.Join(home, ".config", "ptparchiver-go")
@@ -143,20 +140,15 @@ func findConfig() (string, error) {
 }
 
 func loadConfig(path string) (*config.Config, error) {
-	log.Debug().Str("path", path).Msg("loading config file")
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		log.Error().Err(err).Str("path", path).Msg("failed to read config file")
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+	viper.SetConfigFile(path)
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
 	}
 
 	var cfg config.Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		log.Error().Err(err).Str("path", path).Msg("failed to parse config file")
-		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
-
 	return &cfg, nil
 }
 
@@ -171,7 +163,7 @@ func runFetch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := archiver.NewClient(cfg, appVersion, appCommit, appDate)
+	client, err := archiver.NewClient(cfg, version.Version, version.Commit, version.Date)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create client")
 		return fmt.Errorf("failed to create client: %w", err)
@@ -191,7 +183,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			log.Error().Err(err).Msg("could not determine home directory")
-			return fmt.Errorf("could not determine home directory: %w", err)
+			return fmt.Errorf("determine home directory: %w", err)
 		}
 		configDir := filepath.Join(home, ".config", "ptparchiver-go")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -326,7 +318,7 @@ func runService(cmd *cobra.Command, args []string) error {
 		Str("schedule", fmt.Sprintf("every %d minutes", interval)).
 		Msg("starting archiver service")
 
-	client, err := archiver.NewClient(cfg, appVersion, appCommit, appDate)
+	client, err := archiver.NewClient(cfg, version.Version, version.Commit, version.Date)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
@@ -344,19 +336,17 @@ func runService(cmd *cobra.Command, args []string) error {
 		Time("nextRun", nextRun).
 		Msgf("scheduling next fetch in %s", formatDuration(time.Until(nextRun)))
 
-	for {
-		select {
-		case <-ticker.C:
-			log.Info().Msg("performing scheduled fetch")
-			if err := client.FetchAll(); err != nil {
-				log.Error().Err(err).Msg("failed to fetch torrents")
-			}
-			nextRun = time.Now().Add(time.Duration(interval) * time.Minute)
-			log.Info().
-				Time("nextRun", nextRun).
-				Msgf("scheduling next fetch in %s", formatDuration(time.Until(nextRun)))
+	for range ticker.C {
+		log.Info().Msg("performing scheduled fetch")
+		if err := client.FetchAll(); err != nil {
+			log.Error().Err(err).Msg("failed to fetch torrents")
 		}
+		nextRun = time.Now().Add(time.Duration(interval) * time.Minute)
+		log.Info().
+			Time("nextRun", nextRun).
+			Msgf("scheduling next fetch in %s", formatDuration(time.Until(nextRun)))
 	}
+	return nil
 }
 
 // formatDuration converts a duration to a human-readable string

@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
-	runtime "runtime/debug"
-
 	"os/exec"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog/log"
 )
 
@@ -21,7 +21,13 @@ var (
 	BuiltBy string
 )
 
-func init() {
+const (
+	defaultTimeout = 10 * time.Second
+	apiURLFormat   = "https://api.github.com/repos/%s/%s/releases/latest"
+)
+
+// Initialize sets up version information if not already set
+func Initialize() {
 	if Version == "" {
 		Version = getVersion()
 	}
@@ -37,14 +43,16 @@ func init() {
 }
 
 func getVersion() string {
-	if info, ok := runtime.ReadBuildInfo(); ok && info.Main.Version != "(devel)" {
-		return info.Main.Version
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if info.Main.Version != "" && info.Main.Version != "(devel)" {
+			return info.Main.Version
+		}
 	}
 	return "dev"
 }
 
 func getCommit() string {
-	if info, ok := runtime.ReadBuildInfo(); ok {
+	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.revision" {
 				if len(setting.Value) >= 7 {
@@ -58,18 +66,19 @@ func getCommit() string {
 }
 
 func getBuildDate() string {
-	if info, ok := runtime.ReadBuildInfo(); ok {
+	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.time" {
 				return setting.Value
 			}
 		}
+		return time.Now().UTC().Format(time.RFC3339)
 	}
 	return "unknown"
 }
 
 func getBuiltBy() string {
-	if info, ok := runtime.ReadBuildInfo(); ok {
+	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.username" {
 				return setting.Value
@@ -87,21 +96,33 @@ func getBuiltBy() string {
 
 // CheckForUpdates checks GitHub for the latest release version and logs the results
 func CheckForUpdates(org, repo string) error {
-	// Show current version using structured logging
-	log.Info().
-		Str("version", Version).
-		Str("commit", Commit).
-		Str("buildDate", Date).
-		Str("builtBy", BuiltBy).
-		Msg(fmt.Sprintf("%s version info", repo))
+	if org == "" || repo == "" {
+		return fmt.Errorf("organization and repository names are required")
+	}
 
-	// Check for latest release from GitHub API
-	client := &http.Client{Timeout: 10 * time.Second}
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", org, repo)
+	// Show current version using structured logging
+	logEvent := log.Info()
+
+	if Version != "" {
+		logEvent.Str("version", Version)
+	}
+	if Commit != "" && Commit != "none" {
+		logEvent.Str("commit", Commit)
+	}
+	if Date != "" && Date != "unknown" {
+		logEvent.Str("buildDate", Date)
+	}
+	if BuiltBy != "" && BuiltBy != "unknown" {
+		logEvent.Str("builtBy", BuiltBy)
+	}
+
+	logEvent.Msg(fmt.Sprintf("%s version info", repo))
+
+	client := &http.Client{Timeout: defaultTimeout}
+	url := fmt.Sprintf(apiURLFormat, org, repo)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to create request")
-		return nil
+		return fmt.Errorf("creating request: %w", err)
 	}
 
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
@@ -109,14 +130,12 @@ func CheckForUpdates(org, repo string) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to check for updates")
-		return nil
+		return fmt.Errorf("checking updates: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Warn().Str("status", resp.Status).Msg("GitHub API request failed")
-		return nil
+		return fmt.Errorf("GitHub API request failed: %s", resp.Status)
 	}
 
 	var release struct {
@@ -125,24 +144,38 @@ func CheckForUpdates(org, repo string) error {
 		HTMLURL     string    `json:"html_url"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		log.Warn().Err(err).Msg("failed to parse GitHub response")
+		return fmt.Errorf("failed to parse GitHub response: %w", err)
+	}
+
+	// Skip version comparison for dev versions
+	if Version == "dev" {
+		log.Info().
+			Str("current", Version).
+			Str("latest", release.TagName).
+			Time("publishedAt", release.PublishedAt).
+			Str("updateUrl", release.HTMLURL).
+			Msg("development version - skipping update check")
 		return nil
 	}
 
 	latestVersion := strings.TrimPrefix(release.TagName, "v")
+	currentVersion := strings.TrimPrefix(Version, "v")
 
-	if Version == "dev" {
-		log.Info().
-			Str("latestRelease", "v"+latestVersion).
-			Time("publishedAt", release.PublishedAt).
-			Msg("running development version")
-		return nil
+	// Parse versions using semver
+	currentVer, err := semver.NewVersion(currentVersion)
+	if err != nil {
+		return fmt.Errorf("invalid current version format: %w", err)
 	}
 
-	if Version != "v"+latestVersion {
+	latestVer, err := semver.NewVersion(latestVersion)
+	if err != nil {
+		return fmt.Errorf("invalid latest version format: %w", err)
+	}
+
+	if currentVer.LessThan(latestVer) {
 		log.Info().
 			Str("current", Version).
-			Str("latest", "v"+latestVersion).
+			Str("latest", release.TagName).
 			Time("publishedAt", release.PublishedAt).
 			Str("updateUrl", release.HTMLURL).
 			Msg("update available")
