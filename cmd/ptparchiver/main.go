@@ -12,7 +12,6 @@ import (
 	"github.com/s0up4200/ptparchiver-go/internal/config"
 	"github.com/s0up4200/ptparchiver-go/pkg/version"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
@@ -140,15 +139,20 @@ func findConfig() (string, error) {
 }
 
 func loadConfig(path string) (*config.Config, error) {
-	viper.SetConfigFile(path)
-	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+	log.Debug().Str("path", path).Msg("loading config file")
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Error().Err(err).Str("path", path).Msg("failed to read config file")
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	var cfg config.Config
-	if err := viper.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("unmarshal config: %w", err)
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		log.Error().Err(err).Str("path", path).Msg("failed to parse config file")
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
+
 	return &cfg, nil
 }
 
