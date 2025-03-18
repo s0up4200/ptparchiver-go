@@ -365,12 +365,17 @@ func (c *Client) FetchForContainer(name string) error {
 		}
 	}
 
-	// Check available disk space - skip for rTorrent clients
-	if _, ok := torrentClient.(*client.RTorrentClient); ok {
+	// Check available disk space - skip for rTorrent clients and watch directory clients
+	if _, isRTorrent := torrentClient.(*client.RTorrentClient); isRTorrent {
 		c.log.Debug().
 			Str("container", name).
 			Str("torrentSize", units.HumanSize(float64(totalSize))).
-			Msg("skipping disk space check for rTorrent client")
+			Msg("skipping disk space check for rTorrent")
+	} else if _, isWatchDir := torrentClient.(*client.WatchDirClient); isWatchDir {
+		c.log.Debug().
+			Str("container", name).
+			Str("torrentSize", units.HumanSize(float64(totalSize))).
+			Msg("skipping disk space check for watch directory")
 	} else {
 		freeSpace, err := torrentClient.GetFreeSpace()
 		if err != nil {
