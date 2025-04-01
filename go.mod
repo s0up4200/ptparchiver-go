@@ -1,15 +1,14 @@
 module github.com/s0up4200/ptparchiver-go
 
 go 1.23.4
-
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/semver/v3 v3.3.1
-	github.com/autobrr/go-deluge v1.2.0
+	github.com/autobrr/go-deluge v1.3.0
 	github.com/autobrr/go-qbittorrent v1.11.0
 	github.com/autobrr/go-rtorrent v1.12.0
 	github.com/docker/go-units v0.5.0
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
 	github.com/zeebo/bencode v1.0.0
 	gopkg.in/yaml.v3 v3.0.1
