@@ -88,7 +88,7 @@ jobs:
           # Cache only the specific target's artifacts
           path: dist/${{ matrix.target_os }}*
           # Use a key specific to the target OS
-          key: ${{ matrix.target_os }}-build-${{ env.sha_short }}
+          key: ${{ matrix.target_os }}-build-${{ github.sha }}
 
       # Run goreleaser split build
       # Run goreleaser split build, filtered by GOOS
@@ -133,7 +133,7 @@ jobs:
       # Calculate cache key again to restore
       - name: Get short SHA
         shell: bash
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
       # --- Cache Restoration Changes ---
       # Restore each cache individually using the specific keys
@@ -143,21 +143,21 @@ jobs:
         # fail-on-cache-miss: false
         with:
           path: dist/linux* # Restore to the correct path structure
-          key: linux-build-${{ env.sha_short }}
+          key: linux-build-${{ github.sha }}
 
       - name: Restore dist (Windows)
         uses: actions/cache@v4
         # fail-on-cache-miss: false
         with:
           path: dist/windows* # Restore to the correct path structure
-          key: windows-build-${{ env.sha_short }}
+          key: windows-build-${{ github.sha }}
 
       - name: Restore dist (macOS)
         uses: actions/cache@v4
         # fail-on-cache-miss: false
         with:
           path: dist/darwin* # Restore to the correct path structure
-          key: darwin-build-${{ env.sha_short }}
+          key: darwin-build-${{ github.sha }}
 
       # Run goreleaser merge and publish (using artifacts from restored caches)
       # Only publish on tag pushes
