@@ -30,11 +30,19 @@ permissions:
 
 jobs:
   prepare:
-    name: Prepare release artifacts for ${{ matrix.os }} (Windows on Ubuntu)
+    # Update job name to be more specific
+    name: Prepare release artifacts for ${{ matrix.target_os }} on ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest] # Run Linux/Windows builds on Ubuntu, macOS on macOS
-    runs-on: ${{ matrix.os }}
+        # Define each build target explicitly
+        include:
+          - os: ubuntu-latest  # Runner OS
+            target_os: linux   # OS we are building FOR
+          - os: ubuntu-latest  # Runner OS
+            target_os: windows # OS we are building FOR
+          - os: macos-latest  # Runner OS
+            target_os: darwin  # OS we are building FOR
+    runs-on: ${{ matrix.os }} # Use the runner OS from the matrix
     env:
       # Needed for docker builds
       DOCKER_CLI_EXPERIMENTAL: "enabled"
@@ -73,37 +81,28 @@ jobs:
         shell: bash
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      # Cache dist directories based on the runner OS
-      # Ubuntu runner caches Linux AND Windows artifacts
-      - name: Cache dist (Linux + Windows from Ubuntu)
+      # --- Caching Changes ---
+      - name: Cache dist (${{ matrix.target_os }})
         uses: actions/cache@v4
-        if: matrix.os == 'ubuntu-latest'
         with:
-          path: |
-            dist/linux*
-            dist/windows*
-          key: ubuntu-builds-${{ env.sha_short }} # Single key for both linux and windows built here
-
-      # macOS runner caches Darwin artifacts
-      - name: Cache dist (macOS)
-        uses: actions/cache@v4
-        if: matrix.os == 'macos-latest'
-        with:
-          path: dist/darwin*
-          key: darwin-${{ env.sha_short }}
+          # Cache only the specific target's artifacts
+          path: dist/${{ matrix.target_os }}*
+          # Use a key specific to the target OS
+          key: ${{ matrix.target_os }}-build-${{ env.sha_short }}
 
       # Run goreleaser split build
-      # On Ubuntu, this will build linux targets and cross-compile windows targets
-      # On macOS, this will build darwin targets
-      - name: Run GoReleaser split build
+      # Run goreleaser split build, filtered by GOOS
+      - name: Run GoReleaser split build for ${{ matrix.target_os }}
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
           version: "~> v2"
-          args: release --clean --split --parallelism 5
+          args: release --clean --split --parallelism 5 # Keep existing args
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Use default token for commit access if needed by hooks
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          # *** Add this env var to filter the build ***
+          GOOS: ${{ matrix.target_os }}
 
   release:
     name: Merge artifacts and publish release
@@ -136,22 +135,29 @@ jobs:
         shell: bash
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      # Restore all cached dist directories
-      # Restore Linux and Windows artifacts built on Ubuntu
-      - name: Restore dist (Linux + Windows from Ubuntu)
+      # --- Cache Restoration Changes ---
+      # Restore each cache individually using the specific keys
+      - name: Restore dist (Linux)
         uses: actions/cache@v4
+        # Use fail-on-cache-miss: false if a target might not always produce artifacts (e.g., conditional builds)
+        # fail-on-cache-miss: false
         with:
-          path: |
-            dist/linux*
-            dist/windows*
-          key: ubuntu-builds-${{ env.sha_short }}
+          path: dist/linux* # Restore to the correct path structure
+          key: linux-build-${{ env.sha_short }}
 
-      # Restore macOS artifacts built on macOS
+      - name: Restore dist (Windows)
+        uses: actions/cache@v4
+        # fail-on-cache-miss: false
+        with:
+          path: dist/windows* # Restore to the correct path structure
+          key: windows-build-${{ env.sha_short }}
+
       - name: Restore dist (macOS)
         uses: actions/cache@v4
+        # fail-on-cache-miss: false
         with:
-          path: dist/darwin*
-          key: darwin-${{ env.sha_short }}
+          path: dist/darwin* # Restore to the correct path structure
+          key: darwin-build-${{ env.sha_short }}
 
       # Run goreleaser merge and publish (using artifacts from restored caches)
       # Only publish on tag pushes
