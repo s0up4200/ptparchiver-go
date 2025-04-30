@@ -13,9 +13,10 @@ import (
 	"github.com/docker/go-units"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/zeebo/bencode"
+
 	"github.com/s0up4200/ptparchiver-go/internal/client"
 	"github.com/s0up4200/ptparchiver-go/internal/config"
-	"github.com/zeebo/bencode"
 )
 
 func init() {
@@ -28,14 +29,7 @@ type Client struct {
 	log     zerolog.Logger
 }
 
-// make sure we're aware of any changes made to the python version
 const serverVersion = "0.10.0"
-
-type torrentInfo struct {
-	Info struct {
-		Name string `bencode:"name"`
-	} `bencode:"info"`
-}
 
 func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 	logger := log.With().Logger()
@@ -44,10 +38,8 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 		Str("serverVersion", serverVersion).
 		Msg("initializing PTP archiver")
 
-	// Initialize clients map
 	clients := make(map[string]client.TorrentClient)
 
-	// Find which clients are needed
 	activeClients := make(map[string]struct{})
 	for _, container := range cfg.Containers {
 		if container.Client != "" {
@@ -55,7 +47,6 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 		}
 	}
 
-	// Initialize only the qBittorrent clients that are used
 	for name, qbitConfig := range cfg.QBitClients {
 		if _, isActive := activeClients[name]; !isActive {
 			logger.Debug().
@@ -86,7 +77,6 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 		clients[name] = qb
 	}
 
-	// Initialize only the rTorrent clients that are used
 	for name, rtorrConfig := range cfg.RTorrClients {
 		if _, isActive := activeClients[name]; !isActive {
 			logger.Debug().
@@ -115,7 +105,6 @@ func NewClient(cfg *config.Config, ver, commit, date string) (*Client, error) {
 		clients[name] = rt
 	}
 
-	// Initialize only the Deluge clients that are used
 	for name, delugeConfig := range cfg.DelugeClients {
 		if _, isActive := activeClients[name]; !isActive {
 			logger.Debug().
@@ -213,7 +202,6 @@ func (c *Client) fetchFromPTP(name string, container config.Container) ([]byte, 
 		}
 	}
 
-	// check for API errors
 	if fetchResp.Status != "Ok" {
 		errorMsg := "unknown error"
 		if fetchResp.Error != "" {
@@ -292,14 +280,11 @@ func (c *Client) FetchForContainer(name string) error {
 		return fmt.Errorf("container %s must specify either watchDir or client", name)
 	}
 
-	// Only check stalled downloads for qBittorrent and rTorrent clients
 	if container.Client != "" {
-		// Check if the client is qBittorrent or rTorrent
 		_, isQbit := torrentClient.(*client.QBitClient)
 		_, isRtorr := torrentClient.(*client.RTorrentClient)
 
 		if (isQbit || isRtorr) && container.MaxStalled > 0 {
-			// Check stalled downloads count
 			stalledCount, err := torrentClient.CountStalledTorrents(container.Category)
 			if err != nil {
 				return err
@@ -337,7 +322,6 @@ func (c *Client) FetchForContainer(name string) error {
 		return fmt.Errorf("failed to fetch torrent: %w", err)
 	}
 
-	// extract torrent info
 	var t struct {
 		Info struct {
 			Name   string `bencode:"name"`
@@ -355,7 +339,6 @@ func (c *Client) FetchForContainer(name string) error {
 		t.Info.Name = "unknown"
 	}
 
-	// Calculate total size
 	var totalSize int64
 	if t.Info.Length > 0 {
 		totalSize = t.Info.Length
@@ -365,7 +348,6 @@ func (c *Client) FetchForContainer(name string) error {
 		}
 	}
 
-	// Check available disk space - skip for rTorrent clients and watch directory clients
 	if _, isRTorrent := torrentClient.(*client.RTorrentClient); isRTorrent {
 		c.log.Debug().
 			Str("container", name).
@@ -386,7 +368,6 @@ func (c *Client) FetchForContainer(name string) error {
 			return nil
 		}
 
-		// Add some buffer (10% extra) to the required space
 		requiredSpace := uint64(float64(totalSize) * 1.1)
 
 		c.log.Debug().

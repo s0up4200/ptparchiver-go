@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/autobrr/go-deluge"
+
 	"github.com/s0up4200/ptparchiver-go/internal/config"
 )
 
@@ -21,7 +22,6 @@ type DelugeClient struct {
 	}
 }
 
-// NewDelugeClient creates a new Deluge client instance
 func NewDelugeClient(cfg config.DelugeConfig) (*DelugeClient, error) {
 	settings := deluge.Settings{
 		Hostname:         cfg.Host,
@@ -31,7 +31,6 @@ func NewDelugeClient(cfg config.DelugeConfig) (*DelugeClient, error) {
 		ReadWriteTimeout: time.Second * 30,
 	}
 
-	// Try to connect using v2 first
 	v2client := deluge.NewV2(settings)
 	err := v2client.Connect(context.Background())
 	if err == nil {
@@ -40,7 +39,6 @@ func NewDelugeClient(cfg config.DelugeConfig) (*DelugeClient, error) {
 		}, nil
 	}
 
-	// Fall back to v1 if v2 fails
 	v1client := deluge.NewV1(settings)
 	err = v1client.Connect(context.Background())
 	if err != nil {
@@ -52,34 +50,26 @@ func NewDelugeClient(cfg config.DelugeConfig) (*DelugeClient, error) {
 	}, nil
 }
 
-// AddTorrent implements the TorrentClient interface
 func (c *DelugeClient) AddTorrent(torrentData []byte, name string, opts map[string]string) error {
-	// Convert torrent data to base64
 	fileContentBase64 := base64.StdEncoding.EncodeToString(torrentData)
 
-	// Create options
 	options := deluge.Options{}
 
-	// Set paused state
 	if paused, ok := opts["paused"]; ok && paused == "true" {
 		addPaused := true
 		options.AddPaused = &addPaused
 	}
 
-	// Set download location if provided
 	if downloadDir, ok := opts["download_dir"]; ok {
 		options.DownloadLocation = &downloadDir
 	}
 
-	// Add the torrent
 	hash, err := c.client.AddTorrentFile(context.Background(), name, fileContentBase64, &options)
 	if err != nil {
 		return fmt.Errorf("failed to add torrent: %w", err)
 	}
 
-	// If a category/label is specified, set it
 	if category, ok := opts["category"]; ok && category != "" {
-		// Get the label plugin
 		labelPlugin, err := c.client.LabelPlugin(context.Background())
 		if err != nil {
 			return fmt.Errorf("failed to get label plugin: %w", err)
@@ -95,12 +85,9 @@ func (c *DelugeClient) AddTorrent(torrentData []byte, name string, opts map[stri
 	return nil
 }
 
-// delugeSetOrCreateTorrentLabel set torrent label if it exists or create label if it does not
 func delugeSetOrCreateTorrentLabel(ctx context.Context, plugin *deluge.LabelPlugin, clientName string, hash string, label string) error {
 	err := plugin.SetTorrentLabel(ctx, hash, label)
 	if err != nil {
-		// if label does not exist the client will throw an RPC error.
-		// We can parse that and check for specific error for Unknown Label and then create the label
 		var rpcErr deluge.RPCError
 		if errors.As(err, &rpcErr) && rpcErr.ExceptionMessage == "Unknown Label" {
 			if addErr := plugin.AddLabel(ctx, label); addErr != nil {
@@ -118,9 +105,7 @@ func delugeSetOrCreateTorrentLabel(ctx context.Context, plugin *deluge.LabelPlug
 	return nil
 }
 
-// GetFreeSpace implements the TorrentClient interface
 func (c *DelugeClient) GetFreeSpace() (uint64, error) {
-	// Get free space in the default download location
 	freeSpace, err := c.client.GetFreeSpace(context.Background(), "")
 	if err != nil {
 		return 0, fmt.Errorf("failed to get free space: %w", err)
@@ -129,9 +114,7 @@ func (c *DelugeClient) GetFreeSpace() (uint64, error) {
 	return uint64(freeSpace), nil
 }
 
-// CountStalledTorrents implements the TorrentClient interface
 func (c *DelugeClient) CountStalledTorrents(category string) (int, error) {
-	// Get all downloading torrents
 	torrents, err := c.client.TorrentsStatus(context.Background(), deluge.StateDownloading, nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get session state: %w", err)

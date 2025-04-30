@@ -8,12 +8,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// QBitClient implements TorrentClient interface for qBittorrent
 type QBitClient struct {
 	client *qbittorrent.Client
 }
 
-// NewQBitClient creates a new qBittorrent client
 func NewQBitClient(url, username, password, basicUser, basicPass string) (*QBitClient, error) {
 	qbConfig := qbittorrent.Config{
 		Host:      url,
@@ -35,39 +33,32 @@ func NewQBitClient(url, username, password, basicUser, basicPass string) (*QBitC
 	}, nil
 }
 
-// AddTorrent adds a torrent to qBittorrent
 func (c *QBitClient) AddTorrent(torrentData []byte, name string, opts map[string]string) error {
 	log.Debug().
 		Str("name", name).
 		Interface("options", opts).
 		Msg("adding torrent to qbittorrent")
 
-	// Create qBittorrent specific options
 	qbtOpts := &qbittorrent.TorrentAddOptions{}
 
-	// Set paused state
 	if paused, ok := opts["paused"]; ok && paused == "true" {
 		qbtOpts.Paused = true
 	}
 
-	// Set category if provided
 	if category, ok := opts["category"]; ok {
 		qbtOpts.Category = category
 	}
 
-	// Set download path if provided
 	if downloadDir, ok := opts["download_dir"]; ok {
 		qbtOpts.SavePath = downloadDir
 		qbtOpts.AutoTMM = false
 	}
 
-	// Prepare the options for the API call
 	options := qbtOpts.Prepare()
 
 	return c.client.AddTorrentFromMemory(torrentData, options)
 }
 
-// GetFreeSpace returns available disk space in bytes
 func (c *QBitClient) GetFreeSpace() (uint64, error) {
 	space, err := c.client.GetFreeSpaceOnDisk()
 	if err != nil {
@@ -76,7 +67,6 @@ func (c *QBitClient) GetFreeSpace() (uint64, error) {
 	return space, err
 }
 
-// CountStalledTorrents returns the number of stalled downloads in the given category
 func (c *QBitClient) CountStalledTorrents(category string) (int, error) {
 	torrents, err := c.client.GetTorrents(qbittorrent.TorrentFilterOptions{
 		Category: category,
