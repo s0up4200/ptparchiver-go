@@ -30,13 +30,10 @@ permissions:
 
 jobs:
   prepare:
-    name: Prepare release artifacts for ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    name: Prepare release artifacts via cross-compilation
+    runs-on: ubuntu-latest # Run everything on Ubuntu
     env:
-      # Needed for docker builds
+      # Needed for docker builds (if goreleaser were handling them)
       DOCKER_CLI_EXPERIMENTAL: "enabled"
       # Pass builder info to goreleaser
       BUILDER: ${{ github.actor }}@github-actions
@@ -53,16 +50,15 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      # Linux specific setup
+      # Setup needed for cross-compilation and potential Docker interaction within Goreleaser (though we removed it)
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        if: matrix.os == 'ubuntu-latest'
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        if: matrix.os == 'ubuntu-latest'
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
-        if: matrix.os == 'ubuntu-latest' # Only login where docker builds happen
+        # Login is still needed if any goreleaser hooks interact with the registry,
+        # otherwise could be removed from this job if docker jobs handle all registry interaction.
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
@@ -73,29 +69,27 @@ jobs:
         shell: bash
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      # Cache dist directory per OS
+      # Cache dist directories for each target OS built on Ubuntu
       - name: Cache dist (Linux)
         uses: actions/cache@v4
-        if: matrix.os == 'ubuntu-latest'
         with:
-          path: dist/linux* # Cache all linux variants
+          path: dist/linux*
           key: linux-${{ env.sha_short }}
       - name: Cache dist (macOS)
         uses: actions/cache@v4
-        if: matrix.os == 'macos-latest'
         with:
-          path: dist/darwin* # Cache all darwin variants
+          path: dist/darwin*
           key: darwin-${{ env.sha_short }}
       - name: Cache dist (Windows)
         uses: actions/cache@v4
-        if: matrix.os == 'windows-latest'
         with:
-          path: dist/windows* # Cache all windows variants
+          path: dist/windows*
           key: windows-${{ env.sha_short }}
-          enableCrossOsArchive: true # Needed for caching between windows/non-windows
+          # enableCrossOsArchive might not be strictly needed when caching/restoring on the same OS (Ubuntu)
+          # but doesn't hurt to leave it.
 
-      # Run goreleaser split build
-      - name: Run GoReleaser split build
+      # Run goreleaser split build (will cross-compile all targets defined in .goreleaser.yml)
+      - name: Run GoReleaser split build (cross-compile)
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
@@ -136,7 +130,7 @@ jobs:
         shell: bash
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      # Restore all cached dist directories
+      # Restore all cached dist directories built by the single prepare job
       - name: Restore dist (Linux)
         uses: actions/cache@v4
         with:
@@ -152,9 +146,9 @@ jobs:
         with:
           path: dist/windows*
           key: windows-${{ env.sha_short }}
-          enableCrossOsArchive: true
+          # enableCrossOsArchive might not be strictly needed here either.
 
-      # Run goreleaser merge and publish
+      # Run goreleaser merge and publish (using artifacts from restored caches)
       # Only publish on tag pushes
       - name: Run GoReleaser merge and publish
         if: startsWith(github.ref, 'refs/tags/')
