@@ -30,23 +30,18 @@ permissions:
 
 jobs:
   prepare:
-    # Update job name to be more specific
     name: Prepare release artifacts for ${{ matrix.target_os }} on ${{ matrix.os }}
     strategy:
       matrix:
-        # Define each build target explicitly
         include:
-          - os: ubuntu-latest  # Runner OS
-            target_os: linux   # OS we are building FOR
-          - os: ubuntu-latest  # Runner OS
-            target_os: windows # OS we are building FOR
-          - os: macos-latest  # Runner OS
-            target_os: darwin  # OS we are building FOR
-    runs-on: ${{ matrix.os }} # Use the runner OS from the matrix
+          - os: ubuntu-latest
+            target_os: linux
+          - os: ubuntu-latest
+            target_os: windows
+          - os: macos-latest
+            target_os: darwin
+    runs-on: ${{ matrix.os }}
     env:
-      # Needed for docker builds
-      DOCKER_CLI_EXPERIMENTAL: "enabled"
-      # Pass builder info to goreleaser
       BUILDER: ${{ github.actor }}@github-actions
     steps:
       - name: Checkout
@@ -54,14 +49,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Setup steps common for all OS
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: stable # Use stable Go version
+          go-version: stable
           cache: true
 
-      # Linux specific setup
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         if: matrix.os == 'ubuntu-latest'
@@ -70,38 +63,31 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
-        if: matrix.os == 'ubuntu-latest' # Only login where docker builds happen (if goreleaser needed it)
+        if: matrix.os == 'ubuntu-latest'
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Calculate cache key
       - name: Get short SHA
         shell: bash
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      # --- Caching Changes ---
       - name: Cache dist (${{ matrix.target_os }})
         uses: actions/cache@v4
         with:
-          # Cache only the specific target's artifacts
           path: dist/${{ matrix.target_os }}*
-          # Use a key specific to the target OS
           key: ${{ matrix.target_os }}-build-${{ github.sha }}
 
-      # Run goreleaser split build
-      # Run goreleaser split build, filtered by GOOS
       - name: Run GoReleaser split build for ${{ matrix.target_os }}
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
           version: "~> v2"
-          args: release --clean --split --parallelism 5 # Keep existing args
+          args: release --clean --split --parallelism 5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
-          # *** Add this env var to filter the build ***
           GOOS: ${{ matrix.target_os }}
 
   release:
@@ -109,9 +95,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     env:
-      # Needed for docker builds/pushes
-      DOCKER_CLI_EXPERIMENTAL: "enabled"
-      # Pass builder info to goreleaser
       BUILDER: ${{ github.actor }}@github-actions
     steps:
       - name: Checkout
@@ -119,48 +102,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Setup Go (still needed for goreleaser command)
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: stable # Use stable Go version
+          go-version: stable
           cache: true
-      # - name: Install Cosign # Uncomment if you add signing to goreleaser.yml
-      #   uses: sigstore/cosign-installer@v3.8.2
-      # - name: Install Syft # Uncomment if you add SBOMs to goreleaser.yml
-      #   uses: anchore/sbom-action/download-syft@v0.19.0
 
-      # Calculate cache key again to restore
       - name: Get short SHA
         shell: bash
         run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
-      # --- Cache Restoration Changes ---
-      # Restore each cache individually using the specific keys
       - name: Restore dist (Linux)
         uses: actions/cache@v4
-        # Use fail-on-cache-miss: false if a target might not always produce artifacts (e.g., conditional builds)
-        # fail-on-cache-miss: false
         with:
-          path: dist/linux* # Restore to the correct path structure
+          path: dist/linux*
           key: linux-build-${{ github.sha }}
 
       - name: Restore dist (Windows)
         uses: actions/cache@v4
         # fail-on-cache-miss: false
         with:
-          path: dist/windows* # Restore to the correct path structure
+          path: dist/windows*
           key: windows-build-${{ github.sha }}
 
       - name: Restore dist (macOS)
         uses: actions/cache@v4
         # fail-on-cache-miss: false
         with:
-          path: dist/darwin* # Restore to the correct path structure
+          path: dist/darwin*
           key: darwin-build-${{ github.sha }}
 
-      # Run goreleaser merge and publish (using artifacts from restored caches)
-      # Only publish on tag pushes
       - name: Run GoReleaser merge and publish
         if: startsWith(github.ref, 'refs/tags/')
         uses: goreleaser/goreleaser-action@v6
@@ -169,10 +140,9 @@ jobs:
           version: "~> v2"
           args: continue --merge --parallelism 5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Use default token for release publishing
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
 
-      # Run goreleaser merge without publishing for PRs/branches
       - name: Run GoReleaser merge check
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: goreleaser/goreleaser-action@v6
@@ -190,9 +160,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: goreleaser-artifacts
-          path: dist/* # Upload everything in dist
-          if-no-files-found: error # Fail if dist is empty
-          retention-days: 7 # Keep artifacts for 7 days
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
 
   docker:
     name: Build Docker images
@@ -202,13 +172,9 @@ jobs:
       matrix:
         platform:
           - linux/amd64
-          # - linux/amd64/v2 # Goreleaser builds don't use v2/v3, adjust if needed
-          # - linux/amd64/v3
           - linux/arm/v6
           - linux/arm/v7
           - linux/arm64
-    # This job can run in parallel with prepare/release or depend on them if needed
-    # needs: [ prepare ] # Optional dependency
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -257,7 +223,7 @@ jobs:
             BUILDER=${{ github.actor }}@github-actions
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: false # Set to true if you need build provenance
+          provenance: false
 
       - name: Export image digest
         id: digest-prep
@@ -279,7 +245,7 @@ jobs:
     name: Publish Docker multi-arch manifest
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
-    needs: [ docker ] # Depends on the docker build job
+    needs: [ docker ]
     steps:
       - name: Download image digests
         uses: actions/download-artifact@v4
