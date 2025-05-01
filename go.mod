@@ -1,11 +1,13 @@
 module github.com/s0up4200/ptparchiver-go
 
 go 1.23.4
+toolchain go1.24.1
+
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/autobrr/go-deluge v1.3.0
-	github.com/autobrr/go-qbittorrent v1.11.0
+	github.com/autobrr/go-qbittorrent v1.12.0
 	github.com/autobrr/go-rtorrent v1.12.0
 	github.com/docker/go-units v0.5.0
 	github.com/rs/zerolog v1.34.0
@@ -25,7 +27,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
-	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
+	golang.org/x/net v0.39.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
