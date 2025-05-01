@@ -1,7 +1,8 @@
 module github.com/s0up4200/ptparchiver-go
 
-go 1.23.4
-toolchain go1.24.1
+go 1.24
+
+toolchain go1.24.2
 
 require (
 	github.com/Masterminds/semver v1.5.0
