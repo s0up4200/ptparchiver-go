@@ -82,7 +82,7 @@ jobs:
       - name: Run GoReleaser split build for ${{ matrix.target_os }}
         uses: goreleaser/goreleaser-action@v6
         with:
-          distribution: goreleaser-pro
+          distribution: goreleaser
           version: "~> v2"
           args: release --clean --split --parallelism 5
         env:
@@ -136,7 +136,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: goreleaser/goreleaser-action@v6
         with:
-          distribution: goreleaser-pro
+          distribution: goreleaser
           version: "~> v2"
           args: continue --merge --parallelism 5
         env:
@@ -147,7 +147,7 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: goreleaser/goreleaser-action@v6
         with:
-          distribution: goreleaser-pro
+          distribution: goreleaser
           version: "~> v2"
           args: continue --merge --skip=publish --parallelism 5
         env:
