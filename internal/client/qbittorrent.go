@@ -64,7 +64,7 @@ func (c *QBitClient) GetFreeSpace() (uint64, error) {
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get free space")
 	}
-	return space, err
+	return uint64(space), err
 }
 
 func (c *QBitClient) CountStalledTorrents(category string) (int, error) {
