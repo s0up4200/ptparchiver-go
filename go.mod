@@ -12,7 +12,7 @@ require (
 	github.com/autobrr/go-rtorrent v1.12.0
 	github.com/docker/go-units v0.5.0
 	github.com/rs/zerolog v1.34.0
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/zeebo/bencode v1.0.0
 	gopkg.in/yaml.v3 v3.0.1
 )
